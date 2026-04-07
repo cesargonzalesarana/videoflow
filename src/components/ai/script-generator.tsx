@@ -9,19 +9,22 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Wand2, Hash, Copy, Loader2, FileText, Lightbulb } from 'lucide-react'
+import { Sparkles, Wand2, Hash, Copy, Loader2, FileText, Lightbulb, Heading } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function ScriptGenerator() {
   const [scriptPrompt, setScriptPrompt] = useState('')
   const [hashtagPrompt, setHashtagPrompt] = useState('')
   const [suggestionPrompt, setSuggestionPrompt] = useState('')
+  const [titlePrompt, setTitlePrompt] = useState('')
   const [scriptResult, setScriptResult] = useState('')
   const [hashtagResult, setHashtagResult] = useState('')
   const [suggestionResult, setSuggestionResult] = useState('')
+  const [titleResult, setTitleResult] = useState('')
   const [isScriptLoading, setIsScriptLoading] = useState(false)
   const [isHashtagLoading, setIsHashtagLoading] = useState(false)
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(false)
+  const [isTitleLoading, setIsTitleLoading] = useState(false)
 
   const generateScript = async () => {
     if (!scriptPrompt.trim()) return
@@ -89,6 +92,29 @@ export function ScriptGenerator() {
       toast.error('Error al generar sugerencias')
     } finally {
       setIsSuggestionLoading(false)
+    }
+  }
+
+  const generateTitles = async () => {
+    if (!titlePrompt.trim()) return
+    setIsTitleLoading(true)
+    setTitleResult('')
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'titles', prompt: titlePrompt }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        setTitleResult(data.titles)
+      }
+    } catch {
+      toast.error('Error al generar títulos')
+    } finally {
+      setIsTitleLoading(false)
     }
   }
 
@@ -231,11 +257,68 @@ export function ScriptGenerator() {
           </Card>
         </motion.div>
 
-        {/* Content Suggestions */}
+        {/* Title Generator */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
+        >
+          <Card className="glass border-border/30 h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Heading className="h-4 w-4 text-cyan-400" />
+                Generador de Títulos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs">De qué trata tu video</Label>
+                <Textarea
+                  placeholder="Ej: 5 tips para ganar seguidores en Instagram..."
+                  value={titlePrompt}
+                  onChange={(e) => setTitlePrompt(e.target.value)}
+                  className="min-h-[80px] bg-background/50 border-border/50 text-sm"
+                />
+              </div>
+              <Button
+                onClick={generateTitles}
+                disabled={isTitleLoading || !titlePrompt.trim()}
+                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white"
+              >
+                {isTitleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                Generar Títulos
+              </Button>
+              <AnimatePresence>
+                {titleResult && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="relative"
+                  >
+                    <div className="p-4 rounded-lg bg-muted/30 border border-border/30 text-sm whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                      {titleResult}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 h-7 w-7"
+                      onClick={() => copyToClipboard(titleResult)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Content Suggestions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
           className="lg:col-span-2"
         >
           <Card className="glass border-border/30">
