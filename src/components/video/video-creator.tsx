@@ -377,7 +377,8 @@ export function VideoCreator() {
   }
 
   const activeClipInfo = getActiveClipAtTime(currentTime)
-  const activeClip = activeClipInfo?.clip
+  const activeClip = clips.length > 0 ? clips[0] : activeClipInfo?.clip
+
 
   return (
     <div className="space-y-4">
