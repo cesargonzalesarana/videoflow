@@ -66,6 +66,8 @@ export function VideoCreator() {
   const [showTextPanel, setShowTextPanel] = useState(false)
   const [videoTitle, setVideoTitle] = useState('')
   const [activeClipId, setActiveClipId] = useState<string | null>(null)
+  const [activeClipId, setActiveClipId] = useState<string | null>(null)
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
 
@@ -173,6 +175,7 @@ export function VideoCreator() {
 
       setClips(prev => [...prev, newClip])
       addTimelineClip(newClip)
+      setSelectedClipId(clipId)
       toast.success(`${file.name} añadido al timeline`)
     })
   }
