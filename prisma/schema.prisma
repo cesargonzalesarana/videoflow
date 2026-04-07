@@ -3,23 +3,20 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-
-}
-
 model User {
-  id        String           @id @default(cuid())
+  id        String          @id @default(cuid())
   name      String
-  email     String           @unique
+  email     String          @unique
   password  String
   videos    Video[]
   posts     ScheduledPost[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model Video {
@@ -30,7 +27,7 @@ model Video {
   status       String          @default("draft")
   videoUrl     String?
   thumbnailUrl String?
-  duration     Int?
+  duration     Float?
   resolution   String?
   format       String?
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -41,8 +38,8 @@ model Video {
 
 model ScheduledPost {
   id          String   @id @default(cuid())
-  userId      String
   videoId     String
+  userId      String
   platform    String
   scheduledAt DateTime
   status      String   @default("scheduled")
