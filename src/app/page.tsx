@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { AuthForm } from '@/components/auth/auth-form'
 import { Navbar } from '@/components/layout/navbar'
@@ -13,15 +14,44 @@ import { ScriptGenerator } from '@/components/ai/script-generator'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { AnimatePresence, motion } from 'framer-motion'
 
-const viewComponents: Record<string, React.ComponentType> = {
-  dashboard: Dashboard,
-  'video-creator': VideoCreator,
-  'ai-trends': ScriptGenerator,
-  settings: SettingsPanel,
-}
-
 export default function Home() {
-  const { currentView, isAuthenticated } = useAppStore()
+  const { currentView, isAuthenticated, login, setAuthLoading } = useAppStore()
+
+  // Check for existing Supabase session on mount
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        setAuthLoading(true)
+        const res = await fetch('/api/auth', { method: 'GET' })
+        const data = await res.json()
+        
+        if (data.authenticated && data.user) {
+          login(data.user)
+        }
+      } catch (error) {
+        console.error('Session check failed:', error)
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+    checkSession()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show loading state while checking session
+  if (isAuthenticated === false && useAppStore.getState().isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center animated-gradient">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </div>
+          <p className="text-sm text-muted-foreground">Cargando VideoFlow...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Show auth/landing when not logged in
   if (!isAuthenticated) {

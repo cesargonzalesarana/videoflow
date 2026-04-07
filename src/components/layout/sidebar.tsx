@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useAppStore, type SidebarSection } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame } from 'lucide-react'
@@ -22,7 +23,32 @@ const sidebarItems: SidebarItem[] = [
 ]
 
 export function Sidebar() {
-  const { currentView, setView, setSidebarOpen } = useAppStore()
+  const { currentView, setView, setSidebarOpen, user } = useAppStore()
+  const [stats, setStats] = useState({ videos: 0, scheduled: 0, published: 0 })
+
+  useEffect(() => {
+    async function fetchStats() {
+      if (!user?.id) return
+      try {
+        const [videosRes, postsRes] = await Promise.all([
+          fetch(`/api/videos?userId=${user.id}`),
+          fetch(`/api/schedule?userId=${user.id}`)
+        ])
+        const videosData = await videosRes.json()
+        const postsData = await postsRes.json()
+        const vids = videosData.videos || []
+        const posts = postsData.posts || []
+        setStats({
+          videos: vids.length,
+          scheduled: posts.filter((p: any) => p.status === 'scheduled').length,
+          published: posts.filter((p: any) => p.status === 'published').length + vids.filter((v: any) => v.status === 'completed').length,
+        })
+      } catch (error) {
+        console.error('Error fetching sidebar stats:', error)
+      }
+    }
+    fetchStats()
+  }, [user?.id])
 
   const handleNavClick = (viewId: SidebarSection) => {
     setView(viewId)
@@ -31,7 +57,7 @@ export function Sidebar() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo section (only visible in sheet on mobile) */}
+      {/* Logo section */}
       <div className="flex items-center gap-3 px-6 py-5">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
           <Sparkles className="h-5 w-5 text-white" />
@@ -86,15 +112,15 @@ export function Sidebar() {
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Videos</span>
-              <span className="font-semibold text-purple-300">12</span>
+              <span className="font-semibold text-purple-300">{stats.videos}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Programados</span>
-              <span className="font-semibold text-fuchsia-300">8</span>
+              <span className="font-semibold text-fuchsia-300">{stats.scheduled}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Publicados</span>
-              <span className="font-semibold text-green-400">24</span>
+              <span className="font-semibold text-green-400">{stats.published}</span>
             </div>
           </div>
         </div>

@@ -68,6 +68,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ suggestions })
     }
 
+    if (action === 'titles') {
+      const completion = await zai.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un experto en marketing de contenido viral. Genera 5 títulos atractivos y clickbait (sin ser engañosos) para videos de redes sociales. Los títulos deben generar curiosidad y urgencia. Responde en español. Formato: número + título (máximo 60 caracteres cada uno). Sin explicaciones adicionales.'
+          },
+          {
+            role: 'user',
+            content: prompt || 'Un video sobre tips de productividad'
+          }
+        ],
+        temperature: 0.9,
+        max_tokens: 400
+      })
+
+      const titles = completion.choices[0]?.message?.content || 'No se pudieron generar títulos'
+      return NextResponse.json({ titles })
+    }    
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 })
   } catch (error: unknown) {
     console.error('AI error:', error)

@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Menu, LogOut, User, Bell, ChevronDown, Video } from 'lucide-react'
 import { Sidebar } from './sidebar'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 export function Navbar() {
   const { user, logout, currentView, sidebarOpen, setSidebarOpen, toggleSidebar } = useAppStore()
@@ -20,6 +22,18 @@ export function Navbar() {
   const initials = user?.name
     ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'VF'
+
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      logout()
+      toast.success('Sesión cerrada correctamente')
+    } catch (error) {
+      console.error('Logout error:', error)
+      logout()
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 glass-strong border-b border-border/50">
@@ -54,7 +68,6 @@ export function Navbar() {
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-4 w-4" />
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-fuchsia-500 rounded-full border-2 border-background" />
           </Button>
 
           {/* User menu */}
@@ -71,12 +84,12 @@ export function Navbar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 glass-strong">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => useAppStore.getState().setView('settings')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Mi Perfil</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400">
+              <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar Sesión</span>
               </DropdownMenuItem>

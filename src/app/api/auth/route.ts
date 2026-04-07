@@ -2,6 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.user) {
+      return NextResponse.json({ authenticated: false }, { status: 401 })
+    }
+
+    const userId = session.user.id
+    let user = await db.user.findUnique({ where: { id: userId } })
+
+    if (!user) {
+      // Auto-create user profile from Supabase session
+      user = await db.user.create({
+        data: {
+          id: userId,
+          name: session.user?.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+          email: session.user.email || '',
+          password: '__supabase_auth__'
+        }
+      })
+    }
+
+    return NextResponse.json({
+      authenticated: true,
+      user: { id: user.id, name: user.name, email: user.email }
+    })
+  } catch (error) {
+    console.error('Auth session check error:', error)
+    return NextResponse.json({ authenticated: false }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -23,6 +57,7 @@ export async function POST(request: NextRequest) {
 
       const supabase = await createClient()
 
+      // Register user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -49,6 +84,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Save user profile in PostgreSQL via Prisma
       try {
         await db.user.create({
           data: {
@@ -59,6 +95,7 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (prismaError: any) {
+        // If user profile already exists, just continue
         if (!prismaError.message?.includes('Unique')) {
           console.error('Prisma create error:', prismaError)
         }
@@ -100,6 +137,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Get or create user profile in PostgreSQL
       let user = await db.user.findUnique({ where: { id: userId } })
       if (!user) {
         user = await db.user.create({
@@ -113,6 +151,34 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
+        user: { id: user.id, name: user.name, email: user.email }
+      })
+    }
+
+    if (action === 'session') {
+      const supabase = await createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.user) {
+        return NextResponse.json({ authenticated: false }, { status: 401 })
+      }
+
+      const userId = session.user.id
+      let user = await db.user.findUnique({ where: { id: userId } })
+
+      if (!user) {
+        user = await db.user.create({
+          data: {
+            id: userId,
+            name: session.user?.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuario',
+            email: session.user.email || '',
+            password: '__supabase_auth__'
+          }
+        })
+      }
+
+      return NextResponse.json({
+        authenticated: true,
         user: { id: user.id, name: user.name, email: user.email }
       })
     }

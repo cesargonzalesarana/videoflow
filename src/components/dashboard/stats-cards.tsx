@@ -1,17 +1,51 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Video, Calendar, TrendingUp, Eye, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Video, Calendar, Eye, TrendingUp } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-const stats = [
-  { label: 'Videos Creados', value: '12', change: '+3 esta semana', icon: Video, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-  { label: 'Programados', value: '8', change: 'Próximos 7 días', icon: Calendar, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10' },
-  { label: 'Total Vistas', value: '24.5K', change: '+18% vs mes anterior', icon: Eye, color: 'text-green-400', bg: 'bg-green-500/10' },
-  { label: 'Tasa Engage', value: '8.2%', change: '+2.1% mejora', icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-]
+interface StatsCardsProps {
+  totalVideos?: number
+  scheduledPosts?: number
+  completedVideos?: number
+}
 
-export function StatsCards() {
+export function StatsCards({ totalVideos = 0, scheduledPosts = 0, completedVideos = 0 }: StatsCardsProps) {
+  const stats = [
+    { 
+      label: 'Videos Creados', 
+      value: totalVideos.toString(), 
+      change: totalVideos > 0 ? `${totalVideos} video${totalVideos !== 1 ? 's' : ''} en total` : 'Crea tu primer video',
+      icon: Video, 
+      color: 'text-purple-400', 
+      bg: 'bg-purple-500/10' 
+    },
+    { 
+      label: 'Programados', 
+      value: scheduledPosts.toString(), 
+      change: scheduledPosts > 0 ? `${scheduledPosts} publicación${scheduledPosts !== 1 ? 'es' : ''} pendiente${scheduledPosts !== 1 ? 's' : ''}` : 'Sin publicaciones programadas',
+      icon: Calendar, 
+      color: 'text-fuchsia-400', 
+      bg: 'bg-fuchsia-500/10' 
+    },
+    { 
+      label: 'Completados', 
+      value: completedVideos.toString(), 
+      change: completedVideos > 0 ? `${completedVideos} video${completedVideos !== 1 ? 's' : ''} exportado${completedVideos !== 1 ? 's' : ''}` : 'Aún sin exportar',
+      icon: Eye, 
+      color: 'text-green-400', 
+      bg: 'bg-green-500/10' 
+    },
+    { 
+      label: 'Productividad', 
+      value: totalVideos > 0 ? `${Math.round((completedVideos / totalVideos) * 100)}%` : '0%',
+      change: totalVideos > 0 ? `${completedVideos} de ${totalVideos} completados` : 'Empieza creando',
+      icon: TrendingUp, 
+      color: 'text-amber-400', 
+      bg: 'bg-amber-500/10' 
+    },
+  ]
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, i) => (

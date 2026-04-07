@@ -1,23 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAppStore, type ScheduledPost } from '@/lib/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar } from '@/components/ui/calendar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Skeleton } from '@/components/ui/skeleton'
+import { motion } from 'framer-motion'
 import { format, isSameDay, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  CalendarIcon, Clock, Plus, Trash2, Edit, Play,
+  CalendarIcon, Clock, Plus, Trash2, Play,
   Youtube, Instagram, Facebook, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,10 +29,7 @@ const platformIcons: Record<string, React.ReactNode> = {
 }
 
 const platformLabels: Record<string, string> = {
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-  facebook: 'Facebook',
+  youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook',
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -42,22 +38,31 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   failed: { label: 'Fallido', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
 }
 
-// Mock scheduled posts
-const mockPosts: ScheduledPost[] = [
-  { id: '1', videoId: 'v1', userId: 'u1', platform: 'youtube', scheduledAt: new Date(Date.now() + 86400000).toISOString(), status: 'scheduled', caption: 'Tutorial de React avanzado', hashtags: '#react #programming', createdAt: new Date().toISOString() },
-  { id: '2', videoId: 'v2', userId: 'u1', platform: 'tiktok', scheduledAt: new Date(Date.now() + 172800000).toISOString(), status: 'scheduled', caption: '5 tips para programar mejor', hashtags: '#coding #tips', createdAt: new Date().toISOString() },
-  { id: '3', videoId: 'v3', userId: 'u1', platform: 'instagram', scheduledAt: new Date(Date.now() + 345600000).toISOString(), status: 'scheduled', caption: 'Review del nuevo framework', hashtags: '#tech #review', createdAt: new Date().toISOString() },
-  { id: '4', videoId: 'v4', userId: 'u1', platform: 'facebook', scheduledAt: new Date(Date.now() - 86400000).toISOString(), status: 'published', caption: 'Unboxing RTX 5090', hashtags: '#hardware #gaming', createdAt: new Date().toISOString(), publishedAt: new Date().toISOString() },
-  { id: '5', videoId: 'v5', userId: 'u1', platform: 'youtube', scheduledAt: new Date(Date.now() - 172800000).toISOString(), status: 'failed', caption: 'Setup tour 2025', hashtags: '#setup #desk', createdAt: new Date().toISOString() },
-]
-
 export function CalendarView() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [posts] = useState<ScheduledPost[]>(mockPosts)
+  const [posts, setPosts] = useState<ScheduledPost[]>([])
+  const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [newPost, setNewPost] = useState({ platform: '', caption: '', hashtags: '', scheduledTime: '12:00' })
+  const [saving, setSaving] = useState(false)
   const { user } = useAppStore()
+
+  const fetchPosts = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/schedule?userId=${user.id}`)
+      const data = await res.json()
+      setPosts(data.posts || [])
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => { fetchPosts() }, [fetchPosts])
 
   const postsForDate = (date: Date) =>
     posts.filter((p) => isSameDay(new Date(p.scheduledAt), date))
@@ -67,31 +72,57 @@ export function CalendarView() {
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
 
   const handleCreatePost = async () => {
-    if (!selectedDate || !newPost.platform) {
-      toast.error('Selecciona fecha y plataforma')
+    if (!selectedDate || !newPost.platform || !user?.id) {
+      toast.error('Selecciona fecha, plataforma y asegúrate de estar logueado')
       return
     }
 
-    const scheduledAt = new Date(selectedDate)
-    const [hours, minutes] = newPost.scheduledTime.split(':')
-    scheduledAt.setHours(parseInt(hours), parseInt(minutes))
+    setSaving(true)
+    try {
+      const scheduledAt = new Date(selectedDate)
+      const [hours, minutes] = newPost.scheduledTime.split(':')
+      scheduledAt.setHours(parseInt(hours), parseInt(minutes))
 
-    const { addScheduledPost } = useAppStore.getState()
-    addScheduledPost({
-      id: Math.random().toString(36).substr(2, 9),
-      videoId: 'v_new',
-      userId: user?.id || 'u1',
-      platform: newPost.platform as ScheduledPost['platform'],
-      scheduledAt: scheduledAt.toISOString(),
-      status: 'scheduled',
-      caption: newPost.caption,
-      hashtags: newPost.hashtags,
-      createdAt: new Date().toISOString(),
-    })
+      const res = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          videoId: 'manual',
+          platform: newPost.platform,
+          scheduledAt: scheduledAt.toISOString(),
+          caption: newPost.caption,
+          hashtags: newPost.hashtags,
+        })
+      })
 
-    toast.success('Post programado correctamente')
-    setIsDialogOpen(false)
-    setNewPost({ platform: '', caption: '', hashtags: '', scheduledTime: '12:00' })
+      if (!res.ok) {
+        const err = await res.json()
+        toast.error(err.error || 'Error al programar')
+        return
+      }
+
+      toast.success('Post programado correctamente')
+      setIsDialogOpen(false)
+      setNewPost({ platform: '', caption: '', hashtags: '', scheduledTime: '12:00' })
+      fetchPosts()
+    } catch (error) {
+      toast.error('Error de conexión')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const res = await fetch(`/api/schedule?id=${postId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Post eliminado')
+        fetchPosts()
+      }
+    } catch (error) {
+      toast.error('Error al eliminar')
+    }
   }
 
   return (
@@ -170,8 +201,12 @@ export function CalendarView() {
                   />
                 </div>
               </div>
-              <Button onClick={handleCreatePost} className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white">
-                Programar Publicación
+              <Button 
+                onClick={handleCreatePost} 
+                disabled={saving}
+                className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white"
+              >
+                {saving ? 'Programando...' : 'Programar Publicación'}
               </Button>
             </div>
           </DialogContent>
@@ -207,55 +242,68 @@ export function CalendarView() {
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-                  <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
-                    {day}
+              {loading ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                      <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">{day}</div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
-                  .map((day) => {
-                    const dayPosts = postsForDate(day)
-                    const isSelected = selectedDate && isSameDay(day, selectedDate)
-                    const isCurrent = isToday(day)
-
-                    return (
-                      <div
-                        key={day.toISOString()}
-                        onClick={() => setSelectedDate(day)}
-                        className={`
-                          relative p-2 rounded-lg text-center cursor-pointer transition-all min-h-[60px]
-                          ${isSelected ? 'bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 border border-purple-500/30' : 'hover:bg-muted/30 border border-transparent'}
-                        `}
-                      >
-                        <span className={`text-xs font-medium ${isCurrent ? 'text-purple-400' : ''}`}>
-                          {format(day, 'd')}
-                        </span>
-                        {dayPosts.length > 0 && (
-                          <div className="flex flex-wrap gap-0.5 mt-1 justify-center">
-                            {dayPosts.slice(0, 3).map((post) => (
-                              <div
-                                key={post.id}
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  post.platform === 'youtube' ? 'bg-red-400' :
-                                  post.platform === 'tiktok' ? 'bg-pink-400' :
-                                  post.platform === 'instagram' ? 'bg-orange-400' : 'bg-blue-400'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        )}
+                  <Skeleton className="h-80 rounded-lg bg-muted/20" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+                      <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">
+                        {day}
                       </div>
-                    )
-                  })}
-              </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
+                      .map((day) => {
+                        const dayPosts = postsForDate(day)
+                        const isSelected = selectedDate && isSameDay(day, selectedDate)
+                        const isCurrent = isToday(day)
+
+                        return (
+                          <div
+                            key={day.toISOString()}
+                            onClick={() => setSelectedDate(day)}
+                            className={`
+                              relative p-2 rounded-lg text-center cursor-pointer transition-all min-h-[60px]
+                              ${isSelected ? 'bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 border border-purple-500/30' : 'hover:bg-muted/30 border border-transparent'}
+                            `}
+                          >
+                            <span className={`text-xs font-medium ${isCurrent ? 'text-purple-400' : ''}`}>
+                              {format(day, 'd')}
+                            </span>
+                            {dayPosts.length > 0 && (
+                              <div className="flex flex-wrap gap-0.5 mt-1 justify-center">
+                                {dayPosts.slice(0, 3).map((post) => (
+                                  <div
+                                    key={post.id}
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      post.platform === 'youtube' ? 'bg-red-400' :
+                                      post.platform === 'tiktok' ? 'bg-pink-400' :
+                                      post.platform === 'instagram' ? 'bg-orange-400' : 'bg-blue-400'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Right sidebar - Posts list */}
+        {/* Right sidebar */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -277,16 +325,22 @@ export function CalendarView() {
                   {postsForDate(selectedDate).length > 0 ? (
                     <div className="divide-y divide-border/30">
                       {postsForDate(selectedDate).map((post) => (
-                        <div key={post.id} className="px-4 py-3 flex items-center gap-3">
-                          <div className="flex-shrink-0">
-                            {platformIcons[post.platform]}
-                          </div>
+                        <div key={post.id} className="px-4 py-3 flex items-center gap-3 group">
+                          <div className="flex-shrink-0">{platformIcons[post.platform]}</div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{post.caption || 'Sin descripción'}</p>
                             <p className="text-xs text-muted-foreground">
                               {format(new Date(post.scheduledAt), 'HH:mm')}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400"
+                            onClick={() => handleDeletePost(post.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -310,37 +364,48 @@ export function CalendarView() {
               <CardTitle className="text-sm font-semibold">Próximos Programados</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="max-h-64">
-                <div className="divide-y divide-border/30">
-                  {upcomingPosts.map((post, i) => {
-                    const status = statusConfig[post.status]
-                    return (
-                      <motion.div
-                        key={post.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 + i * 0.05 }}
-                        className="px-4 py-3 hover:bg-muted/20 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3 mb-1">
-                          {platformIcons[post.platform]}
-                          <span className="text-xs text-muted-foreground">{platformLabels[post.platform]}</span>
-                          <Badge variant="outline" className={`text-[10px] ml-auto ${status.color}`}>
-                            {status.label}
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-medium truncate">{post.caption || 'Sin descripción'}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(post.scheduledAt), "d MMM, HH:mm", { locale: es })}
-                          </span>
-                        </div>
-                      </motion.div>
-                    )
-                  })}
+              {loading ? (
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg bg-muted/20" />)}
                 </div>
-              </ScrollArea>
+              ) : upcomingPosts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p>No hay posts programados</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-64">
+                  <div className="divide-y divide-border/30">
+                    {upcomingPosts.map((post, i) => {
+                      const status = statusConfig[post.status]
+                      return (
+                        <motion.div
+                          key={post.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + i * 0.05 }}
+                          className="px-4 py-3 hover:bg-muted/20 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3 mb-1">
+                            {platformIcons[post.platform]}
+                            <span className="text-xs text-muted-foreground">{platformLabels[post.platform]}</span>
+                            <Badge variant="outline" className={`text-[10px] ml-auto ${status.color}`}>
+                              {status.label}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium truncate">{post.caption || 'Sin descripción'}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(post.scheduledAt), "d MMM, HH:mm", { locale: es })}
+                            </span>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
         </motion.div>
