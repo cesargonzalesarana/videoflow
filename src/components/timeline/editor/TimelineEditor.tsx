@@ -40,7 +40,7 @@ export function TimelineEditor() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#1a1a2e] text-white overflow-hidden">
+    <div className="h-full flex flex-col bg-[#1a1a2e] text-white overflow-hidden rounded-lg">
       {/* Top toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-[#2a2a4a]">
         <div className="flex items-center gap-3">

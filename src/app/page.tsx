@@ -71,7 +71,7 @@ export default function Home() {
               transition={{ duration: 0.2 }}
             >
               {currentView === 'dashboard' && <Dashboard />}
-              {currentView === 'video-creator' && <VideoCreator />}
+              {currentView === 'video-creator' && <div className="-m-4 md:-m-6 h-[calc(100vh-64px)]"><VideoCreator /></div>}
               {currentView === 'scheduler' && (
                 <div className="space-y-6">
                   <CalendarView />
