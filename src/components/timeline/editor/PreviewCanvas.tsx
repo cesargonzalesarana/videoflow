@@ -1,14 +1,15 @@
 'use client'
 
 import { useTimelineStore } from '@/lib/timeline-store'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 
 export function PreviewCanvas() {
   const { tracks, currentTime, isPlaying, updateClip } = useTimelineStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const prevVideoId = useRef<string | null>(null)
-  const prevAudioId = useRef<string | null>(null)
+  const [videoReady, setVideoReady] = useState(false)
+  const [audioReady, setAudioReady] = useState(false)
+  const prevPlayingState = useRef(false)
 
   const activeVideo = tracks
     .find((t) => t.type === 'video')?.clips
@@ -37,65 +38,60 @@ export function PreviewCanvas() {
 
   const audioMuted = tracks.find((t) => t.type === 'audio')?.muted ?? false
 
-  // Video: load and play when clip becomes active
+  // Load video when clip changes
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     if (activeVideo && activeVideo.src) {
-      if (activeVideo.id !== prevVideoId.current) {
-        prevVideoId.current = activeVideo.id
-        video.src = activeVideo.src
-        video.currentTime = currentTime - activeVideo.startTime
-        video.load()
-      }
-      if (isPlaying && video.paused) {
-        video.play().catch(() => {})
-      }
-    } else {
-      if (prevVideoId.current) {
-        prevVideoId.current = null
-        video.pause()
-        video.removeAttribute('src')
-      }
+      video.src = activeVideo.src
+      video.load()
+      setVideoReady(false)
     }
-  }, [activeVideo?.id, isPlaying])
+  }, [activeVideo?.id])
 
-  // Video: pause when not playing
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    if (!isPlaying) video.pause()
-  }, [isPlaying])
-
-  // Audio: load and play when clip becomes active
+  // Load audio when clip changes
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     if (activeAudio && activeAudio.src) {
-      if (activeAudio.id !== prevAudioId.current) {
-        prevAudioId.current = activeAudio.id
-        audio.src = activeAudio.src
-        audio.currentTime = currentTime - activeAudio.startTime
-        audio.load()
+      audio.src = activeAudio.src
+      audio.load()
+      setAudioReady(false)
+    }
+  }, [activeAudio?.id])
+
+  // Handle play/pause for video
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !activeVideo) return
+
+    if (isPlaying) {
+      const clipTime = currentTime - activeVideo.startTime
+      if (videoReady && video.paused) {
+        video.currentTime = clipTime
+        video.play().catch(() => {})
       }
-      if (isPlaying && audio.paused) {
+    } else {
+      video.pause()
+    }
+    prevPlayingState.current = isPlaying
+  }, [isPlaying, videoReady, activeVideo?.id])
+
+  // Handle play/pause for audio
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !activeAudio) return
+
+    if (isPlaying) {
+      const clipTime = currentTime - activeAudio.startTime
+      if (audioReady && audio.paused) {
+        audio.currentTime = clipTime
         audio.play().catch(() => {})
       }
     } else {
-      if (prevAudioId.current) {
-        prevAudioId.current = null
-        audio.pause()
-        audio.removeAttribute('src')
-      }
+      audio.pause()
     }
-  }, [activeAudio?.id, isPlaying])
-
-  // Audio: pause when not playing
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (!isPlaying) audio.pause()
-  }, [isPlaying])
+  }, [isPlaying, audioReady, activeAudio?.id])
 
   return (
     <div className="h-full flex items-center justify-center bg-black relative overflow-hidden">
@@ -111,6 +107,19 @@ export function PreviewCanvas() {
                 transition: 'transform 0.1s',
               }}
               playsInline
+              onLoadedData={() => {
+                setVideoReady(true)
+                if (isPlaying) {
+                  const v = videoRef.current
+                  if (v && activeVideo) {
+                    v.currentTime = currentTime - activeVideo.startTime
+                    v.play().catch(() => {})
+                  }
+                }
+              }}
+              onCanPlay={() => {
+                setVideoReady(true)
+              }}
             />
           </div>
         )}
@@ -118,6 +127,19 @@ export function PreviewCanvas() {
         <audio
           ref={audioRef}
           style={{ volume: audioMuted ? 0 : (activeAudio?.volume ?? 1) }}
+          onLoadedData={() => {
+            setAudioReady(true)
+            if (isPlaying) {
+              const a = audioRef.current
+              if (a && activeAudio) {
+                a.currentTime = currentTime - activeAudio.startTime
+                a.play().catch(() => {})
+              }
+            }
+          }}
+          onCanPlay={() => {
+            setAudioReady(true)
+          }}
         />
 
         {activeImage && activeImage.src && (
