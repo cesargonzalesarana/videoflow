@@ -9,6 +9,7 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
 import { useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/lib/store'
+import { ExportPanel } from './ExportPanel'
 
 export function TimelineEditor() {
   const {
@@ -107,6 +108,7 @@ export function TimelineEditor() {
   }
 
   const totalClips = tracks.reduce((sum, t) => sum + t.clips.length, 0)
+    const [showExport, setShowExport] = useState(false)
 
   return (
     <div className="h-full flex flex-col bg-[#1a1a2e] text-white overflow-hidden rounded-lg">
@@ -162,6 +164,15 @@ export function TimelineEditor() {
           <span className="text-xs text-gray-400">Zoom</span>
           <input type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-20 accent-purple-500" />
           <span className="text-xs text-gray-400 w-8">{zoom}x</span>
+                    <button
+            onClick={() => setShowExport(true)}
+            className="ml-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-medium transition-colors flex items-center gap-1"
+            title="Exportar video"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Exportar
+          </button>
+             <ExportPanel isOpen={showExport} onClose={() => setShowExport(false)} />
         </div>
       </div>
 
