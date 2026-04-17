@@ -8,6 +8,7 @@ import { MediaPanel } from './MediaPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
 import { useRef, useEffect } from 'react'
+import { useAppStore } from '@/lib/store'
 
 export function TimelineEditor() {
   const { tracks, currentTime, isPlaying, zoom, setCurrentTime, setIsPlaying, setZoom } = useTimelineStore()
@@ -43,7 +44,7 @@ export function TimelineEditor() {
       {/* Top toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-[#2a2a4a]">
         <div className="flex items-center gap-3">
-                      <button onClick={() => window.location.href = '/'} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>Volver</button>
+                      <button onClick={() => useAppStore.getState().setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>Volver</button>
           <h1 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             VideoFlow Editor
           </h1>
