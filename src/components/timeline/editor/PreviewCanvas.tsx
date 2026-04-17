@@ -1,17 +1,14 @@
 'use client'
 
 import { useTimelineStore } from '@/lib/timeline-store'
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect } from 'react'
 
 export function PreviewCanvas() {
-  const { tracks, currentTime, isPlaying, selectedClipId, updateClip } = useTimelineStore()
+  const { tracks, currentTime, isPlaying, updateClip } = useTimelineStore()
   const videoRef = useRef<HTMLVideoElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const lastVideoClipId = useRef<string | null>(null)
-  const lastAudioClipId = useRef<string | null>(null)
-  const [videoSrc, setVideoSrc] = useState<string>('')
-  const [audioSrc, setAudioSrc] = useState<string>('')
-  const lastSyncTime = useRef(0)
+  const prevVideoId = useRef<string | null>(null)
+  const prevAudioId = useRef<string | null>(null)
 
   const activeVideo = tracks
     .find((t) => t.type === 'video')?.clips
@@ -40,97 +37,64 @@ export function PreviewCanvas() {
 
   const audioMuted = tracks.find((t) => t.type === 'audio')?.muted ?? false
 
-  // Handle video clip changes
+  // Video: load and play when clip becomes active
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-
     if (activeVideo && activeVideo.src) {
-      if (activeVideo.id !== lastVideoClipId.current) {
-        lastVideoClipId.current = activeVideo.id
-        setVideoSrc(activeVideo.src)
+      if (activeVideo.id !== prevVideoId.current) {
+        prevVideoId.current = activeVideo.id
+        video.src = activeVideo.src
+        video.currentTime = currentTime - activeVideo.startTime
         video.load()
-        const clipTime = currentTime - activeVideo.startTime
-        video.currentTime = clipTime
-        if (isPlaying) video.play().catch(() => {})
-      } else if (isPlaying && video.paused) {
-        const clipTime = currentTime - activeVideo.startTime
-        video.currentTime = clipTime
+      }
+      if (isPlaying && video.paused) {
         video.play().catch(() => {})
       }
     } else {
-      if (lastVideoClipId.current) {
-        lastVideoClipId.current = null
+      if (prevVideoId.current) {
+        prevVideoId.current = null
         video.pause()
-        video.currentTime = 0
+        video.removeAttribute('src')
       }
     }
-  }, [activeVideo?.id])
+  }, [activeVideo?.id, isPlaying])
 
-  // Sync video time during playback
+  // Video: pause when not playing
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !activeVideo || !isPlaying) return
-    const now = performance.now()
-    if (now - lastSyncTime.current < 500) return
-    lastSyncTime.current = now
-    const clipTime = currentTime - activeVideo.startTime
-    if (Math.abs(video.currentTime - clipTime) > 0.5) {
-      video.currentTime = clipTime
-    }
-  }, [currentTime])
-
-  // Play/Pause video
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !activeVideo) return
-    if (isPlaying) {
-      const clipTime = currentTime - activeVideo.startTime
-      if (Math.abs(video.currentTime - clipTime) > 0.5) video.currentTime = clipTime
-      video.play().catch(() => {})
-    } else {
-      video.pause()
-    }
+    if (!video) return
+    if (!isPlaying) video.pause()
   }, [isPlaying])
 
-  // Handle audio clip changes
+  // Audio: load and play when clip becomes active
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-
     if (activeAudio && activeAudio.src) {
-      if (activeAudio.id !== lastAudioClipId.current) {
-        lastAudioClipId.current = activeAudio.id
-        setAudioSrc(activeAudio.src)
+      if (activeAudio.id !== prevAudioId.current) {
+        prevAudioId.current = activeAudio.id
+        audio.src = activeAudio.src
+        audio.currentTime = currentTime - activeAudio.startTime
         audio.load()
-        const clipTime = currentTime - activeAudio.startTime
-        audio.currentTime = clipTime
-        if (isPlaying) audio.play().catch(() => {})
-      } else if (isPlaying && audio.paused) {
-        const clipTime = currentTime - activeAudio.startTime
-        audio.currentTime = clipTime
+      }
+      if (isPlaying && audio.paused) {
         audio.play().catch(() => {})
       }
     } else {
-      if (lastAudioClipId.current) {
-        lastAudioClipId.current = null
+      if (prevAudioId.current) {
+        prevAudioId.current = null
         audio.pause()
-        audio.currentTime = 0
+        audio.removeAttribute('src')
       }
     }
-  }, [activeAudio?.id])
+  }, [activeAudio?.id, isPlaying])
 
-  // Play/Pause audio
+  // Audio: pause when not playing
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !activeAudio) return
-    if (isPlaying) {
-      const clipTime = currentTime - activeAudio.startTime
-      if (Math.abs(audio.currentTime - clipTime) > 0.5) audio.currentTime = clipTime
-      audio.play().catch(() => {})
-    } else {
-      audio.pause()
-    }
+    if (!audio) return
+    if (!isPlaying) audio.pause()
   }, [isPlaying])
 
   return (
@@ -141,7 +105,6 @@ export function PreviewCanvas() {
           <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: activeVideo.opacity }}>
             <video
               ref={videoRef}
-              src={videoSrc}
               className="w-full h-full object-contain"
               style={{
                 transform: `scale(${activeVideo.scale ?? 1}) translate(${activeVideo.posX ?? 0}%, ${activeVideo.posY ?? 0}%)`,
@@ -152,13 +115,10 @@ export function PreviewCanvas() {
           </div>
         )}
 
-        {activeAudio && activeAudio.src && (
-          <audio
-            ref={audioRef}
-            src={audioSrc}
-            style={{ volume: audioMuted ? 0 : (activeAudio.volume ?? 1) }}
-          />
-        )}
+        <audio
+          ref={audioRef}
+          style={{ volume: audioMuted ? 0 : (activeAudio?.volume ?? 1) }}
+        />
 
         {activeImage && activeImage.src && (
           <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: activeImage.opacity }}>
@@ -203,24 +163,15 @@ export function PreviewCanvas() {
         {activeClip && (
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-2 z-30">
             <div className="bg-black/80 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-3 border border-white/10">
-              <button
-                onClick={() => updateActiveProp({ scale: Math.max(0.1, scale - 0.1) })}
-                className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white"
-              >-</button>
+              <button onClick={() => updateActiveProp({ scale: Math.max(0.1, scale - 0.1) })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white">-</button>
               <span className="text-[10px] text-gray-300 w-10 text-center">{Math.round(scale * 100)}%</span>
-              <button
-                onClick={() => updateActiveProp({ scale: Math.min(3, scale + 0.1) })}
-                className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white"
-              >+</button>
+              <button onClick={() => updateActiveProp({ scale: Math.min(3, scale + 0.1) })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white">+</button>
               <span className="text-gray-600">|</span>
               <button onClick={() => updateActiveProp({ posX: posX - 5 })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">←</button>
               <button onClick={() => updateActiveProp({ posX: posX + 5 })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">→</button>
               <button onClick={() => updateActiveProp({ posY: posY - 5 })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">↑</button>
               <button onClick={() => updateActiveProp({ posY: posY + 5 })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">↓</button>
-              <button
-                onClick={() => updateActiveProp({ scale: 1, posX: 0, posY: 0 })}
-                className="text-[10px] text-purple-400 hover:text-purple-300 ml-1"
-              >↺ Reset</button>
+              <button onClick={() => updateActiveProp({ scale: 1, posX: 0, posY: 0 })} className="text-[10px] text-purple-400 hover:text-purple-300 ml-1">↺ Reset</button>
             </div>
           </div>
         )}

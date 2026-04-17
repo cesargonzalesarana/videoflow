@@ -19,6 +19,11 @@ export function TimelineEditor() {
   const timelineRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
+  const currentTimeRef = useRef<number>(0)
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime
+  }, [currentTime])
 
   const handleKeydown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -72,19 +77,26 @@ export function TimelineEditor() {
   }, [handleKeydown])
 
   useEffect(() => {
-    if (isPlaying) {
-      lastTimeRef.current = performance.now()
-      const animate = (now: number) => {
-        const delta = (now - lastTimeRef.current) / 1000
-        lastTimeRef.current = now
-        setCurrentTime(Math.min(currentTime + delta, 300))
-        if (currentTime + delta >= 300) setIsPlaying(false)
-        else animRef.current = requestAnimationFrame(animate)
+    if (!isPlaying) {
+      if (animRef.current) cancelAnimationFrame(animRef.current)
+      return
+    }
+    lastTimeRef.current = performance.now()
+    const animate = (now: number) => {
+      const delta = (now - lastTimeRef.current) / 1000
+      lastTimeRef.current = now
+      const newTime = Math.min(currentTimeRef.current + delta, 300)
+      currentTimeRef.current = newTime
+      setCurrentTime(newTime)
+      if (newTime >= 300) {
+        setIsPlaying(false)
+        return
       }
       animRef.current = requestAnimationFrame(animate)
     }
+    animRef.current = requestAnimationFrame(animate)
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
-  }, [isPlaying])
+  }, [isPlaying, setCurrentTime, setIsPlaying])
 
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current || (e.target as HTMLElement).closest('[data-clip]')) return
@@ -98,7 +110,6 @@ export function TimelineEditor() {
 
   return (
     <div className="h-full flex flex-col bg-[#1a1a2e] text-white overflow-hidden rounded-lg">
-      {/* Top toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-[#2a2a4a] rounded-t-lg">
         <div className="flex items-center gap-3">
           <button onClick={() => useAppStore.getState().setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
@@ -149,16 +160,11 @@ export function TimelineEditor() {
             🧲 Snap
           </button>
           <span className="text-xs text-gray-400">Zoom</span>
-          <input
-            type="range" min="0.25" max="4" step="0.25" value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-20 accent-purple-500"
-          />
+          <input type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-20 accent-purple-500" />
           <span className="text-xs text-gray-400 w-8">{zoom}x</span>
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         <MediaPanel />
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -178,7 +184,6 @@ export function TimelineEditor() {
         <PropertiesPanel />
       </div>
 
-      {/* Bottom status bar */}
       <div className="flex items-center justify-between px-4 py-1 bg-[#16162a] border-t border-[#2a2a4a] text-[10px] text-gray-500 rounded-b-lg">
         <div className="flex items-center gap-4">
           <span>Clips: {totalClips}</span>
