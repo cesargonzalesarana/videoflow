@@ -1,9 +1,11 @@
 'use client'
 
 import { useTimelineStore } from '@/lib/timeline-store'
+import { useRef, useEffect } from 'react'
 
 export function PreviewCanvas() {
-  const { tracks, currentTime, selectedClipId, updateClip } = useTimelineStore()
+  const { tracks, currentTime, isPlaying, selectedClipId, updateClip } = useTimelineStore()
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const activeVideo = tracks
     .find((t) => t.type === 'video')?.clips
@@ -17,9 +19,7 @@ export function PreviewCanvas() {
     .find((t) => t.type === 'text')?.clips
     .filter((c) => currentTime >= c.startTime && currentTime < c.startTime + c.duration) || []
 
-  const getActiveClip = () => activeVideo || activeImage
-
-  const activeClip = getActiveClip()
+  const activeClip = activeVideo || activeImage
   const scale = activeClip?.scale ?? 1
   const posX = activeClip?.posX ?? 0
   const posY = activeClip?.posY ?? 0
@@ -28,45 +28,84 @@ export function PreviewCanvas() {
     if (activeClip) updateClip(activeClip.id, updates)
   }
 
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !activeVideo) return
+
+    if (isPlaying) {
+      const clipTime = currentTime - activeVideo.startTime
+      if (Math.abs(video.currentTime - clipTime) > 0.3) {
+        video.currentTime = clipTime
+      }
+      video.play().catch(() => {})
+    } else {
+      video.pause()
+    }
+  }, [isPlaying, activeVideo?.id])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !activeVideo || !isPlaying) return
+
+    const clipTime = currentTime - activeVideo.startTime
+    video.currentTime = clipTime
+  }, [currentTime])
+
+  const activeAudio = tracks
+    .find((t) => t.type === 'audio')?.clips
+    .find((c) => currentTime >= c.startTime && currentTime < c.startTime + c.duration)
+
   return (
     <div className="h-full flex items-center justify-center bg-black relative overflow-hidden">
       <div className="relative w-full h-full max-w-[960px] max-h-[540px] bg-[#0a0a1a] mx-auto my-auto overflow-hidden">
         {activeVideo && activeVideo.src && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ opacity: activeVideo.opacity }}
-          >
+          <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: activeVideo.opacity }}>
             <video
+              ref={videoRef}
               key={activeVideo.id}
               src={activeVideo.src}
               className="w-full h-full object-contain"
-              style={{ transform: `scale(${activeVideo.scale ?? 1}) translate(${activeVideo.posX ?? 0}%, ${activeVideo.posY ?? 0}%)`, transition: 'transform 0.1s' }}
-              autoPlay
-              muted={tracks.find((t) => t.type === 'audio')?.muted}
+              style={{
+                transform: `scale(${activeVideo.scale ?? 1}) translate(${activeVideo.posX ?? 0}%, ${activeVideo.posY ?? 0}%)`,
+                transition: 'transform 0.1s',
+                volume: (activeVideo.volume ?? 1) * (tracks.find((t) => t.type === 'audio')?.muted ? 0 : 1),
+              }}
+              playsInline
             />
           </div>
         )}
 
+        {activeAudio && activeAudio.src && (
+          <audio
+            key={activeAudio.id}
+            src={activeAudio.src}
+            ref={(el) => {
+              if (!el) return
+              const clipTime = currentTime - activeAudio.startTime
+              if (Math.abs(el.currentTime - clipTime) > 0.3) el.currentTime = clipTime
+              if (isPlaying) el.play().catch(() => {})
+              else el.pause()
+            }}
+            style={{ volume: (activeAudio.volume ?? 1) * (tracks.find((t) => t.type === 'audio')?.muted ? 0 : 1) }}
+          />
+        )}
+
         {activeImage && activeImage.src && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ opacity: activeImage.opacity }}
-          >
+          <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: activeImage.opacity }}>
             <img
               src={activeImage.src}
               alt={activeImage.name}
               className="max-w-full max-h-full object-contain"
-              style={{ transform: `scale(${activeImage.scale ?? 1}) translate(${activeImage.posX ?? 0}%, ${activeImage.posY ?? 0}%)`, transition: 'transform 0.1s' }}
+              style={{
+                transform: `scale(${activeImage.scale ?? 1}) translate(${activeImage.posX ?? 0}%, ${activeImage.posY ?? 0}%)`,
+                transition: 'transform 0.1s',
+              }}
             />
           </div>
         )}
 
         {activeTexts.map((t) => (
-          <div
-            key={t.id}
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ opacity: t.opacity }}
-          >
+          <div key={t.id} className="absolute inset-0 flex items-center justify-center" style={{ opacity: t.opacity }}>
             <span
               style={{
                 fontSize: `${(t.fontSize ?? 32) * (t.scale ?? 1)}px`,
@@ -91,20 +130,17 @@ export function PreviewCanvas() {
           </div>
         )}
 
-        {/* Size & Position controls overlay */}
         {activeClip && (
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center gap-2 z-30">
             <div className="bg-black/80 backdrop-blur-sm rounded-lg px-3 py-1.5 flex items-center gap-3 border border-white/10">
               <button
                 onClick={() => updateActiveProp({ scale: Math.max(0.1, scale - 0.1) })}
                 className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white"
-                title="Achicar"
               >-</button>
               <span className="text-[10px] text-gray-300 w-10 text-center">{Math.round(scale * 100)}%</span>
               <button
                 onClick={() => updateActiveProp({ scale: Math.min(3, scale + 0.1) })}
                 className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs text-white"
-                title="Agrandar"
               >+</button>
               <span className="text-gray-600">|</span>
               <button onClick={() => updateActiveProp({ posX: posX - 5 })} className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 flex items-center justify-center text-xs">←</button>
@@ -114,7 +150,6 @@ export function PreviewCanvas() {
               <button
                 onClick={() => updateActiveProp({ scale: 1, posX: 0, posY: 0 })}
                 className="text-[10px] text-purple-400 hover:text-purple-300 ml-1"
-                title="Resetear"
               >↺ Reset</button>
             </div>
           </div>
