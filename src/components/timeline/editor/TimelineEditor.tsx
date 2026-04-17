@@ -7,7 +7,7 @@ import { Playhead } from './Playhead'
 import { MediaPanel } from './MediaPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { ExportPanel } from './ExportPanel'
 
