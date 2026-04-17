@@ -54,6 +54,7 @@ export function TimelineClipBlock({ clip, track }: Props) {
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
+    e.preventDefault()
     setIsResizing(true)
     dragStartX.current = e.clientX
 
@@ -84,24 +85,20 @@ export function TimelineClipBlock({ clip, track }: Props) {
       } ${isSelected ? 'ring-2 ring-white shadow-lg shadow-purple-500/20' : 'border-white/20 opacity-90 hover:opacity-100'}`}
       style={{ left, width: Math.max(width, 20) }}
       onMouseDown={handleMouseDown}
+      onClick={(e) => e.stopPropagation()}
     >
-      {/* Fade In overlay */}
       {fadeInWidth > 0 && (
         <div
           className="absolute left-0 top-0 h-full bg-gradient-to-r from-black/70 to-transparent pointer-events-none"
           style={{ width: Math.min(fadeInWidth, width) }}
         />
       )}
-
-      {/* Fade Out overlay */}
       {fadeOutWidth > 0 && (
         <div
           className="absolute right-0 top-0 h-full bg-gradient-to-l from-black/70 to-transparent pointer-events-none"
           style={{ width: Math.min(fadeOutWidth, width) }}
         />
       )}
-
-      {/* Clip content */}
       <div className="px-2 py-1 overflow-hidden relative z-10">
         <p className="text-[10px] text-white font-medium truncate">{clip.name}</p>
         <p className="text-[9px] text-white/60">
@@ -110,8 +107,6 @@ export function TimelineClipBlock({ clip, track }: Props) {
           {clip.fadeOut ? ' 🔴' : ''}
         </p>
       </div>
-
-      {/* Fade indicators */}
       {fadeInWidth > 5 && (
         <div className="absolute bottom-0.5 left-1 z-10 pointer-events-none">
           <div className="w-2 h-2 rounded-full bg-green-400/80" />
@@ -122,11 +117,10 @@ export function TimelineClipBlock({ clip, track }: Props) {
           <div className="w-2 h-2 rounded-full bg-orange-400/80" />
         </div>
       )}
-
-      {/* Resize handle */}
       <div
         className="absolute right-0 top-0 w-2 h-full cursor-col-resize rounded-r-md hover:bg-white/20"
         onMouseDown={handleResizeMouseDown}
+        onClick={(e) => e.stopPropagation()}
       />
     </div>
   )

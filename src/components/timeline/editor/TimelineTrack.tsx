@@ -52,7 +52,7 @@ export function TimelineTrack({ track }: Props) {
       {/* Track content */}
       <div
         className="flex-1 h-14 relative"
-        onClick={() => setSelectedClipId(null)}
+        onMouseDown={(e) => { if (!e.target.closest('[data-clip]')) setSelectedClipId(null) }}
       >
         {track.clips.map((clip) => (
           <TimelineClipBlock key={clip.id} clip={clip} track={track} />
