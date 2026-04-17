@@ -23,133 +23,26 @@ interface Format {
 }
 
 const formats: Format[] = [
-  {
-    id: 'youtube',
-    name: 'YouTube',
-    platform: 'youtube',
-    icon: '▶️',
-    width: 1920,
-    height: 1080,
-    fps: 30,
-    bitrate: 8000000,
-    maxDuration: 600,
-    description: 'Full HD 1080p, hasta 10 min',
-    color: 'from-red-600 to-red-800',
-  },
-  {
-    id: 'instagram-reel',
-    name: 'Instagram Reels',
-    platform: 'instagram',
-    icon: '📱',
-    width: 1080,
-    height: 1920,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 90,
-    description: 'Vertical 9:16, hasta 90s',
-    color: 'from-pink-600 to-purple-800',
-  },
-  {
-    id: 'instagram-post',
-    name: 'Instagram Post',
-    platform: 'instagram',
-    icon: '📷',
-    width: 1080,
-    height: 1080,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 60,
-    description: 'Cuadrado 1:1, hasta 60s',
-    color: 'from-pink-600 to-orange-500',
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok',
-    platform: 'tiktok',
-    icon: '🎵',
-    width: 1080,
-    height: 1920,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 180,
-    description: 'Vertical 9:16, hasta 3 min',
-    color: 'from-gray-800 to-black',
-  },
-  {
-    id: 'facebook',
-    name: 'Facebook',
-    platform: 'facebook',
-    icon: '👥',
-    width: 1280,
-    height: 720,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 240,
-    description: 'HD 720p, hasta 4 min',
-    color: 'from-blue-600 to-blue-800',
-  },
-  {
-    id: 'twitter',
-    name: 'X (Twitter)',
-    platform: 'twitter',
-    icon: '🐦',
-    width: 1280,
-    height: 720,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 140,
-    description: 'HD 720p, hasta 2:20',
-    color: 'from-gray-700 to-gray-900',
-  },
-  {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    platform: 'linkedin',
-    icon: '💼',
-    width: 1920,
-    height: 1080,
-    fps: 30,
-    bitrate: 6000000,
-    maxDuration: 600,
-    description: 'Full HD 1080p, hasta 10 min',
-    color: 'from-blue-700 to-blue-900',
-  },
-  {
-    id: 'whatsapp',
-    name: 'WhatsApp Status',
-    platform: 'whatsapp',
-    icon: '💬',
-    width: 720,
-    height: 1280,
-    fps: 30,
-    bitrate: 3000000,
-    maxDuration: 30,
-    description: 'Vertical 9:16, hasta 30s',
-    color: 'from-green-600 to-green-800',
-  },
-  {
-    id: 'custom',
-    name: 'Personalizado',
-    platform: 'custom',
-    icon: '⚙️',
-    width: 1280,
-    height: 720,
-    fps: 30,
-    bitrate: 5000000,
-    maxDuration: 600,
-    description: 'Configura tu resolucion',
-    color: 'from-purple-600 to-purple-800',
-  },
+  { id: 'youtube', name: 'YouTube', platform: 'youtube', icon: '▶️', width: 1920, height: 1080, fps: 30, bitrate: 8000000, maxDuration: 600, description: 'Full HD 1080p, hasta 10 min', color: 'from-red-600 to-red-800' },
+  { id: 'instagram-reel', name: 'Instagram Reels', platform: 'instagram', icon: '📱', width: 1080, height: 1920, fps: 30, bitrate: 5000000, maxDuration: 90, description: 'Vertical 9:16, hasta 90s', color: 'from-pink-600 to-purple-800' },
+  { id: 'instagram-post', name: 'Instagram Post', platform: 'instagram', icon: '📷', width: 1080, height: 1080, fps: 30, bitrate: 5000000, maxDuration: 60, description: 'Cuadrado 1:1, hasta 60s', color: 'from-pink-600 to-orange-500' },
+  { id: 'tiktok', name: 'TikTok', platform: 'tiktok', icon: '🎵', width: 1080, height: 1920, fps: 30, bitrate: 5000000, maxDuration: 180, description: 'Vertical 9:16, hasta 3 min', color: 'from-gray-800 to-black' },
+  { id: 'facebook', name: 'Facebook', platform: 'facebook', icon: '👥', width: 1280, height: 720, fps: 30, bitrate: 5000000, maxDuration: 240, description: 'HD 720p, hasta 4 min', color: 'from-blue-600 to-blue-800' },
+  { id: 'twitter', name: 'X (Twitter)', platform: 'twitter', icon: '🐦', width: 1280, height: 720, fps: 30, bitrate: 5000000, maxDuration: 140, description: 'HD 720p, hasta 2:20', color: 'from-gray-700 to-gray-900' },
+  { id: 'linkedin', name: 'LinkedIn', platform: 'linkedin', icon: '💼', width: 1920, height: 1080, fps: 30, bitrate: 6000000, maxDuration: 600, description: 'Full HD 1080p, hasta 10 min', color: 'from-blue-700 to-blue-900' },
+  { id: 'whatsapp', name: 'WhatsApp Status', platform: 'whatsapp', icon: '💬', width: 720, height: 1280, fps: 30, bitrate: 3000000, maxDuration: 30, description: 'Vertical 9:16, hasta 30s', color: 'from-green-600 to-green-800' },
+  { id: 'custom', name: 'Personalizado', platform: 'custom', icon: '⚙️', width: 1280, height: 720, fps: 30, bitrate: 5000000, maxDuration: 600, description: 'Configura tu resolucion', color: 'from-purple-600 to-purple-800' },
 ]
 
 export function ExportPanel({ isOpen, onClose }: Props) {
-  const { tracks, isPlaying, setIsPlaying } = useTimelineStore()
+  const { tracks } = useTimelineStore()
   const [status, setStatus] = useState<'idle' | 'recording' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [selectedFormat, setSelectedFormat] = useState<Format>(formats[0])
   const [customWidth, setCustomWidth] = useState(1280)
   const [customHeight, setCustomHeight] = useState(720)
+  const [includeAudio, setIncludeAudio] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chunksRef = useRef<Blob[]>([])
 
@@ -161,12 +54,16 @@ export function ExportPanel({ isOpen, onClose }: Props) {
 
   const getTotalClips = () => tracks.reduce((sum, t) => sum + t.clips.length, 0)
 
+  const hasAudioClips = () => {
+    const audioTrack = tracks.find((t) => t.type === 'audio')
+    const videoTrack = tracks.find((t) => t.type === 'video')
+    return (audioTrack && audioTrack.clips.length > 0) || (videoTrack && videoTrack.clips.some(c => c.src))
+  }
+
   const isDurationValid = () => getProjectDuration() <= selectedFormat.maxDuration
 
   const getEffectiveFormat = (): Format => {
-    if (selectedFormat.id === 'custom') {
-      return { ...selectedFormat, width: customWidth, height: customHeight }
-    }
+    if (selectedFormat.id === 'custom') return { ...selectedFormat, width: customWidth, height: customHeight }
     return selectedFormat
   }
 
@@ -186,9 +83,71 @@ export function ExportPanel({ isOpen, onClose }: Props) {
     if (!ctx) return
 
     const duration = getProjectDuration()
-    const stream = canvas.captureStream(format.fps)
-    const recorder = new MediaRecorder(stream, {
-      mimeType: 'video/webm;codecs=vp9',
+
+    // Create canvas stream for video
+    const canvasStream = canvas.captureStream(format.fps)
+    let combinedStream: MediaStream
+
+    if (includeAudio && hasAudioClips()) {
+      // Try to create audio context and capture audio
+      try {
+        const audioContext = new AudioContext()
+        const audioDestination = audioContext.createMediaStreamDestination()
+        const videoTrack = tracks.find((t) => t.type === 'video')
+        const audioTrack = tracks.find((t) => t.type === 'audio')
+
+        let videoEl: HTMLVideoElement | null = null
+        let audioEl: HTMLAudioElement | null = null
+
+        if (audioTrack && audioTrack.clips.length > 0) {
+          audioEl = document.createElement('audio')
+          audioEl.crossOrigin = 'anonymous'
+          audioEl.src = audioTrack.clips[0].src
+          audioEl.volume = (audioTrack.clips[0].volume ?? 1) * (audioTrack.muted ? 0 : 1)
+          audioEl.load()
+
+          try {
+            const source = audioContext.createMediaElementSource(audioEl)
+            source.connect(audioDestination)
+            source.connect(audioContext.destination)
+          } catch (e) {
+            console.log('Audio source error:', e)
+          }
+        }
+
+        if (videoTrack && videoTrack.clips.length > 0 && videoTrack.clips[0].src) {
+          videoEl = document.createElement('video')
+          videoEl.crossOrigin = 'anonymous'
+          videoEl.muted = false
+          videoEl.playsInline = true
+          videoEl.src = videoTrack.clips[0].src
+          videoEl.load()
+
+          try {
+            const source = audioContext.createMediaElementSource(videoEl)
+            source.connect(audioDestination)
+            source.connect(audioContext.destination)
+          } catch (e) {
+            console.log('Video audio source error:', e)
+          }
+        }
+
+        // Combine video tracks from canvas + audio tracks
+        const audioTracks = audioDestination.stream.getAudioTracks()
+        combinedStream = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...audioTracks,
+        ])
+      } catch (e) {
+        console.log('Audio context failed, exporting without audio:', e)
+        combinedStream = canvasStream
+      }
+    } else {
+      combinedStream = canvasStream
+    }
+
+    const recorder = new MediaRecorder(combinedStream, {
+      mimeType: 'video/webm;codecs=vp9,opus',
       videoBitsPerSecond: format.bitrate,
     })
     chunksRef.current = []
@@ -213,35 +172,26 @@ export function ExportPanel({ isOpen, onClose }: Props) {
     const audioTrack = tracks.find((t) => t.type === 'audio')
 
     let videoEl: HTMLVideoElement | null = null
-    let audioEl: HTMLAudioElement | null = null
     let imageEl: HTMLImageElement | null = null
 
-    if (videoTrack && videoTrack.clips.length > 0) {
+    if (videoTrack && videoTrack.clips.length > 0 && videoTrack.clips[0].src) {
       videoEl = document.createElement('video')
       videoEl.crossOrigin = 'anonymous'
-      videoEl.muted = true
+      videoEl.muted = !includeAudio
       videoEl.playsInline = true
       videoEl.src = videoTrack.clips[0].src
       videoEl.loop = false
       await new Promise<void>((resolve) => { videoEl!.onloadeddata = () => resolve(); videoEl!.load() })
     }
 
-    if (imageTrack && imageTrack.clips.length > 0) {
+    if (imageTrack && imageTrack.clips.length > 0 && imageTrack.clips[0].src) {
       imageEl = document.createElement('img')
       imageEl.crossOrigin = 'anonymous'
       imageEl.src = imageTrack.clips[0].src!
       await new Promise<void>((resolve) => { imageEl!.onload = () => resolve() })
     }
 
-    if (audioTrack && audioTrack.clips.length > 0) {
-      audioEl = document.createElement('audio')
-      audioEl.src = audioTrack.clips[0].src
-      audioEl.volume = audioTrack.clips[0].volume ?? 1
-      audioEl.load()
-    }
-
     const startTime = performance.now()
-    const durationMs = duration * 1000
     const w = format.width
     const h = format.height
 
@@ -251,13 +201,11 @@ export function ExportPanel({ isOpen, onClose }: Props) {
 
       if (currentSec >= duration) {
         if (videoEl) videoEl.pause()
-        if (audioEl) audioEl.pause()
         recorder.stop()
         return
       }
 
       setProgress(Math.min(Math.round((currentSec / duration) * 100), 99))
-
       ctx!.fillStyle = '#000000'
       ctx!.fillRect(0, 0, w, h)
 
@@ -316,7 +264,6 @@ export function ExportPanel({ isOpen, onClose }: Props) {
       requestAnimationFrame(renderFrame)
     }
 
-    if (audioEl) { audioEl.currentTime = 0; audioEl.play().catch(() => {}) }
     requestAnimationFrame(renderFrame)
   }
 
@@ -325,7 +272,8 @@ export function ExportPanel({ isOpen, onClose }: Props) {
     const a = document.createElement('a')
     a.href = downloadUrl
     const format = getEffectiveFormat()
-    a.download = `videoflow-${format.id}-${format.width}x${format.height}.webm`
+    const audioSuffix = includeAudio ? '' : '-noaudio'
+    a.download = `videoflow-${format.id}-${format.width}x${format.height}${audioSuffix}.webm`
     a.click()
   }
 
@@ -342,7 +290,6 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                 <h3 className="text-lg font-semibold mb-1">Exportar Video</h3>
                 <p className="text-xs text-gray-500 mb-4">Selecciona el formato para tu red social</p>
 
-                {/* Format grid */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   {formats.map((f) => (
                     <button
@@ -361,29 +308,35 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                   ))}
                 </div>
 
-                {/* Custom dimensions */}
                 {selectedFormat.id === 'custom' && (
                   <div className="flex gap-2 mb-4">
                     <div className="flex-1">
                       <label className="text-[10px] text-gray-500 uppercase">Ancho (px)</label>
-                      <input
-                        type="number"
-                        value={customWidth}
-                        onChange={(e) => setCustomWidth(Number(e.target.value))}
-                        className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-                      />
+                      <input type="number" value={customWidth} onChange={(e) => setCustomWidth(Number(e.target.value))} className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none" />
                     </div>
                     <div className="flex-1">
                       <label className="text-[10px] text-gray-500 uppercase">Alto (px)</label>
-                      <input
-                        type="number"
-                        value={customHeight}
-                        onChange={(e) => setCustomHeight(Number(e.target.value))}
-                        className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-                      />
+                      <input type="number" value={customHeight} onChange={(e) => setCustomHeight(Number(e.target.value))} className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none" />
                     </div>
                   </div>
                 )}
+
+                {/* Audio toggle */}
+                <div className="bg-[#12122a] rounded-lg p-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-white">Incluir audio</p>
+                      <p className="text-[10px] text-gray-500">{hasAudioClips() ? 'Audio detectado en tu proyecto' : 'No hay audio en el proyecto'}</p>
+                    </div>
+                    <button
+                      onClick={() => setIncludeAudio(!includeAudio)}
+                      disabled={!hasAudioClips()}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${includeAudio ? 'bg-purple-600' : 'bg-[#2a2a4a]'} ${!hasAudioClips() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${includeAudio ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+                </div>
 
                 {/* Format details */}
                 <div className="bg-[#12122a] rounded-lg p-3 mb-4 space-y-2">
@@ -395,64 +348,26 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Resolucion</span>
-                      <span className="text-white">{selectedFormat.width} x {selectedFormat.height}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">FPS</span>
-                      <span className="text-white">{selectedFormat.fps}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Duracion max</span>
-                      <span className="text-white">{Math.floor(selectedFormat.maxDuration / 60)}:{(selectedFormat.maxDuration % 60).toString().padStart(2, '0')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Tu video</span>
-                      <span className={isDurationValid() ? 'text-green-400' : 'text-red-400'}>
-                        {getProjectDuration().toFixed(1)}s
-                        {!isDurationValid() && ' (excede)'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Clips</span>
-                      <span className="text-white">{getTotalClips()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Formato</span>
-                      <span className="text-white">WebM (VP9)</span>
-                    </div>
+                    <div className="flex justify-between"><span className="text-gray-500">Resolucion</span><span className="text-white">{selectedFormat.width} x {selectedFormat.height}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">FPS</span><span className="text-white">{selectedFormat.fps}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Duracion max</span><span className="text-white">{Math.floor(selectedFormat.maxDuration / 60)}:{(selectedFormat.maxDuration % 60).toString().padStart(2, '0')}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Tu video</span><span className={isDurationValid() ? 'text-green-400' : 'text-red-400'}>{getProjectDuration().toFixed(1)}s{!isDurationValid() && ' (excede)'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Clips</span><span className="text-white">{getTotalClips()}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Audio</span><span className={includeAudio ? 'text-green-400' : 'text-gray-500'}>{includeAudio ? 'Si' : 'No'}</span></div>
                   </div>
                 </div>
 
-                {/* Aspect ratio preview */}
                 <div className="flex items-center justify-center mb-4">
                   <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${selectedFormat.color} flex items-center justify-center text-2xl shadow-lg`} />
                   <div className="ml-3">
-                    <p className="text-[11px] text-gray-400">
-                      Aspecto: {selectedFormat.width / selectedFormat.height > 1 ? 'Horizontal' : selectedFormat.width / selectedFormat.height < 1 ? 'Vertical' : 'Cuadrado'}
-                    </p>
-                    <p className="text-[10px] text-gray-500">
-                      {selectedFormat.width}:{selectedFormat.height}
-                    </p>
+                    <p className="text-[11px] text-gray-400">{selectedFormat.width / selectedFormat.height > 1 ? 'Horizontal' : selectedFormat.width / selectedFormat.height < 1 ? 'Vertical' : 'Cuadrado'}</p>
+                    <p className="text-[10px] text-gray-500">{selectedFormat.width}:{selectedFormat.height}</p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-[#2a2a4a] text-gray-300 text-sm hover:bg-[#3a3a5a] transition-colors">
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={startExport}
-                    disabled={!isDurationValid() || getTotalClips() === 0}
-                    className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium transition-colors ${
-                      !isDurationValid() || getTotalClips() === 0
-                        ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500'
-                    }`}
-                  >
-                    🎬 Exportar
-                  </button>
+                  <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-[#2a2a4a] text-gray-300 text-sm hover:bg-[#3a3a5a] transition-colors">Cancelar</button>
+                  <button onClick={startExport} disabled={!isDurationValid() || getTotalClips() === 0} className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium transition-colors ${!isDurationValid() || getTotalClips() === 0 ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500'}`}>🎬 Exportar</button>
                 </div>
               </>
             )}
@@ -460,17 +375,12 @@ export function ExportPanel({ isOpen, onClose }: Props) {
             {status === 'recording' && (
               <>
                 <h3 className="text-lg font-semibold mb-4">Exportando para {selectedFormat.name}...</h3>
-                <div className="flex items-center justify-center mb-4">
-                  <span className="text-4xl">{selectedFormat.icon}</span>
-                </div>
+                <div className="flex items-center justify-center mb-4"><span className="text-4xl">{selectedFormat.icon}</span></div>
                 <div className="mb-4">
                   <div className="w-full h-3 bg-[#2a2a4a] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300 rounded-full"
-                      style={{ width: `${progress}%` }}
-                    />
+                    <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300 rounded-full" style={{ width: `${progress}%` }} />
                   </div>
-                  <p className="text-sm text-gray-400 mt-2 text-center">{progress}%</p>
+                  <p className="text-sm text-gray-400 mt-2 text-center">{progress}% {includeAudio ? '(con audio)' : '(sin audio)'}</p>
                 </div>
                 <p className="text-xs text-gray-500 text-center">{selectedFormat.width}x{selectedFormat.height} - No cierres esta ventana</p>
               </>
@@ -481,17 +391,11 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                 <div className="text-center mb-4">
                   <span className="text-4xl">✅</span>
                   <h3 className="text-lg font-semibold mt-2 text-green-400">Exportacion completa</h3>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {selectedFormat.icon} {selectedFormat.name} ({selectedFormat.width}x{selectedFormat.height})
-                  </p>
+                  <p className="text-sm text-gray-400 mt-1">{selectedFormat.icon} {selectedFormat.name} ({selectedFormat.width}x{selectedFormat.height}) {includeAudio ? '- Con audio' : '- Sin audio'}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setStatus('idle'); setDownloadUrl(null) }} className="flex-1 py-2.5 rounded-lg bg-[#2a2a4a] text-gray-300 text-sm hover:bg-[#3a3a5a] transition-colors">
-                    Cerrar
-                  </button>
-                  <button onClick={download} className="flex-1 py-2.5 rounded-lg bg-green-600 text-white text-sm hover:bg-green-500 transition-colors font-medium">
-                    ⬇ Descargar
-                  </button>
+                  <button onClick={() => { setStatus('idle'); setDownloadUrl(null) }} className="flex-1 py-2.5 rounded-lg bg-[#2a2a4a] text-gray-300 text-sm hover:bg-[#3a3a5a] transition-colors">Cerrar</button>
+                  <button onClick={download} className="flex-1 py-2.5 rounded-lg bg-green-600 text-white text-sm hover:bg-green-500 transition-colors font-medium">⬇ Descargar</button>
                 </div>
               </>
             )}
