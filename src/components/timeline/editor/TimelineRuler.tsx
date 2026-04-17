@@ -20,26 +20,31 @@ export function TimelineRuler() {
   }
 
   return (
-    <div
-      className="h-8 bg-[#1a1a3a] border-b border-[#2a2a4a] relative flex-shrink-0 overflow-hidden"
-      style={{ width: totalWidth }}
-    >
-      {marks.map((time) => (
-        <div
-          key={time}
-          className="absolute top-0 h-full flex flex-col items-center"
-          style={{ left: time * pixelsPerSecond }}
-        >
-          <div className="w-px h-2 bg-[#4a4a6a] mt-1" />
-          <span className="text-[9px] text-gray-500 mt-0.5 select-none">
-            {time % (interval * 2) === 0 ? formatTime(time) : ''}
-          </span>
-        </div>
-      ))}
+    <div className="h-8 bg-[#1a1a3a] border-b border-[#2a2a4a] flex flex-shrink-0 overflow-hidden">
+      {/* Spacer for track headers */}
+      <div className="w-32 flex-shrink-0 bg-[#16162a] border-r border-[#2a2a4a]" />
+      {/* Ruler */}
       <div
-        className="absolute top-0 w-0.5 h-full bg-purple-500 pointer-events-none z-10"
-        style={{ left: currentTime * pixelsPerSecond }}
-      />
+        className="relative overflow-hidden"
+        style={{ width: totalWidth }}
+      >
+        {marks.map((time) => (
+          <div
+            key={time}
+            className="absolute top-0 h-full flex flex-col items-center"
+            style={{ left: time * pixelsPerSecond }}
+          >
+            <div className="w-px h-2 bg-[#4a4a6a] mt-1" />
+            <span className="text-[9px] text-gray-500 mt-0.5 select-none">
+              {time % (interval * 2) === 0 ? formatTime(time) : ''}
+            </span>
+          </div>
+        ))}
+        <div
+          className="absolute top-0 w-0.5 h-full bg-purple-500 pointer-events-none z-10"
+          style={{ left: currentTime * pixelsPerSecond }}
+        />
+      </div>
     </div>
   )
 }
