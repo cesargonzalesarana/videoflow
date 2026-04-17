@@ -73,22 +73,57 @@ export function TimelineClipBlock({ clip, track }: Props) {
     document.addEventListener('mouseup', handleMouseUp)
   }, [clip.id, clip.duration, pixelsPerSecond, updateClip])
 
+  const fadeInWidth = (clip.fadeIn ?? 0) * pixelsPerSecond
+  const fadeOutWidth = (clip.fadeOut ?? 0) * pixelsPerSecond
+
   return (
     <div
       data-clip="true"
-      className={`absolute top-1 h-[calc(100%-8px)] rounded-md bg-gradient-to-b border cursor-grab active:cursor-grabbing transition-shadow select-none ${
+      className={`absolute top-1 h-[calc(100%-8px)] rounded-md bg-gradient-to-b border cursor-grab active:cursor-grabbing transition-shadow select-none overflow-hidden ${
         clipColors[clip.type]
       } ${isSelected ? 'ring-2 ring-white shadow-lg shadow-purple-500/20' : 'border-white/20 opacity-90 hover:opacity-100'}`}
       style={{ left, width: Math.max(width, 20) }}
       onMouseDown={handleMouseDown}
-      onDoubleClick={() => removeClip(clip.id)}
     >
-      <div className="px-2 py-1 overflow-hidden">
+      {/* Fade In overlay */}
+      {fadeInWidth > 0 && (
+        <div
+          className="absolute left-0 top-0 h-full bg-gradient-to-r from-black/70 to-transparent pointer-events-none"
+          style={{ width: Math.min(fadeInWidth, width) }}
+        />
+      )}
+
+      {/* Fade Out overlay */}
+      {fadeOutWidth > 0 && (
+        <div
+          className="absolute right-0 top-0 h-full bg-gradient-to-l from-black/70 to-transparent pointer-events-none"
+          style={{ width: Math.min(fadeOutWidth, width) }}
+        />
+      )}
+
+      {/* Clip content */}
+      <div className="px-2 py-1 overflow-hidden relative z-10">
         <p className="text-[10px] text-white font-medium truncate">{clip.name}</p>
         <p className="text-[9px] text-white/60">
           {clip.duration.toFixed(1)}s
+          {clip.fadeIn ? ' 🟢' : ''}
+          {clip.fadeOut ? ' 🔴' : ''}
         </p>
       </div>
+
+      {/* Fade indicators */}
+      {fadeInWidth > 5 && (
+        <div className="absolute bottom-0.5 left-1 z-10 pointer-events-none">
+          <div className="w-2 h-2 rounded-full bg-green-400/80" />
+        </div>
+      )}
+      {fadeOutWidth > 5 && (
+        <div className="absolute bottom-0.5 right-1 z-10 pointer-events-none">
+          <div className="w-2 h-2 rounded-full bg-orange-400/80" />
+        </div>
+      )}
+
+      {/* Resize handle */}
       <div
         className="absolute right-0 top-0 w-2 h-full cursor-col-resize rounded-r-md hover:bg-white/20"
         onMouseDown={handleResizeMouseDown}

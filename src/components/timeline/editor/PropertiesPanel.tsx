@@ -3,7 +3,7 @@
 import { useTimelineStore } from '@/lib/timeline-store'
 
 export function PropertiesPanel() {
-  const { tracks, selectedClipId, updateClip, removeClip } = useTimelineStore()
+  const { tracks, selectedClipId, updateClip, removeClip, splitClip, duplicateClip } = useTimelineStore()
 
   const selectedClip = tracks
     .flatMap((t) => t.clips)
@@ -40,29 +40,37 @@ export function PropertiesPanel() {
         </div>
 
         <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Inicio (seg)</label>
-          <input
-            type="number"
-            value={selectedClip.startTime.toFixed(2)}
-            onChange={(e) => updateClip(selectedClip.id, { startTime: Number(e.target.value) })}
-            step="0.1"
-            className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-          />
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Tipo</label>
+          <div className="mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-gray-300">
+            {selectedClip.type === 'video' ? '🎬 Video' : selectedClip.type === 'audio' ? '🔊 Audio' : selectedClip.type === 'text' ? '📝 Texto' : '🖼️ Imagen'}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Inicio (s)</label>
+            <input
+              type="number"
+              value={selectedClip.startTime.toFixed(2)}
+              onChange={(e) => updateClip(selectedClip.id, { startTime: Number(e.target.value) })}
+              step="0.1"
+              className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Duracion (s)</label>
+            <input
+              type="number"
+              value={selectedClip.duration.toFixed(2)}
+              onChange={(e) => updateClip(selectedClip.id, { duration: Math.max(0.1, Number(e.target.value)) })}
+              step="0.1"
+              className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
+            />
+          </div>
         </div>
 
         <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Duración (seg)</label>
-          <input
-            type="number"
-            value={selectedClip.duration.toFixed(2)}
-            onChange={(e) => updateClip(selectedClip.id, { duration: Math.max(0.1, Number(e.target.value)) })}
-            step="0.1"
-            className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Volumen</label>
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Volumen: {Math.round((selectedClip.volume ?? 1) * 100)}%</label>
           <input
             type="range"
             min="0"
@@ -72,11 +80,10 @@ export function PropertiesPanel() {
             onChange={(e) => updateClip(selectedClip.id, { volume: Number(e.target.value) })}
             className="w-full mt-1 accent-purple-500"
           />
-          <span className="text-[10px] text-gray-400">{Math.round((selectedClip.volume ?? 1) * 100)}%</span>
         </div>
 
         <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Opacidad</label>
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Opacidad: {Math.round((selectedClip.opacity ?? 1) * 100)}%</label>
           <input
             type="range"
             min="0"
@@ -86,11 +93,46 @@ export function PropertiesPanel() {
             onChange={(e) => updateClip(selectedClip.id, { opacity: Number(e.target.value) })}
             className="w-full mt-1 accent-purple-500"
           />
-          <span className="text-[10px] text-gray-400">{Math.round((selectedClip.opacity ?? 1) * 100)}%</span>
+        </div>
+
+        <div className="border-t border-[#2a2a4a] pt-3">
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Transiciones</label>
+          <div className="mt-2 space-y-2">
+            <div>
+              <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                <span>Fade In</span>
+                <span>{(selectedClip.fadeIn ?? 0).toFixed(1)}s</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="0.1"
+                value={selectedClip.fadeIn ?? 0}
+                onChange={(e) => updateClip(selectedClip.id, { fadeIn: Number(e.target.value) })}
+                className="w-full accent-green-500"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                <span>Fade Out</span>
+                <span>{(selectedClip.fadeOut ?? 0).toFixed(1)}s</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="0.1"
+                value={selectedClip.fadeOut ?? 0}
+                onChange={(e) => updateClip(selectedClip.id, { fadeOut: Number(e.target.value) })}
+                className="w-full accent-orange-500"
+              />
+            </div>
+          </div>
         </div>
 
         {selectedClip.type === 'text' && (
-          <>
+          <div className="border-t border-[#2a2a4a] pt-3">
             <div>
               <label className="text-[10px] text-gray-500 uppercase tracking-wider">Texto</label>
               <textarea
@@ -100,33 +142,49 @@ export function PropertiesPanel() {
                 className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none resize-none"
               />
             </div>
-            <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wider">Tamaño fuente</label>
-              <input
-                type="number"
-                value={selectedClip.fontSize ?? 32}
-                onChange={(e) => updateClip(selectedClip.id, { fontSize: Number(e.target.value) })}
-                className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-              />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Tamaño</label>
+                <input
+                  type="number"
+                  value={selectedClip.fontSize ?? 32}
+                  onChange={(e) => updateClip(selectedClip.id, { fontSize: Number(e.target.value) })}
+                  className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Color</label>
+                <input
+                  type="color"
+                  value={selectedClip.color ?? '#ffffff'}
+                  onChange={(e) => updateClip(selectedClip.id, { color: e.target.value })}
+                  className="w-full mt-1 h-7 bg-[#1a1a3a] border border-[#2a2a4a] rounded cursor-pointer"
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wider">Color</label>
-              <input
-                type="color"
-                value={selectedClip.color ?? '#ffffff'}
-                onChange={(e) => updateClip(selectedClip.id, { color: e.target.value })}
-                className="w-full mt-1 h-8 bg-[#1a1a3a] border border-[#2a2a4a] rounded cursor-pointer"
-              />
-            </div>
-          </>
+          </div>
         )}
 
-        <button
-          onClick={() => removeClip(selectedClip.id)}
-          className="w-full py-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition-colors mt-4"
-        >
-          Eliminar clip
-        </button>
+        <div className="border-t border-[#2a2a4a] pt-3 space-y-2">
+          <button
+            onClick={() => splitClip(selectedClip.id)}
+            className="w-full py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
+          >
+            ✂️ Cortar en playhead (S)
+          </button>
+          <button
+            onClick={() => duplicateClip(selectedClip.id)}
+            className="w-full py-2 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
+          >
+            📋 Duplicar (Ctrl+D)
+          </button>
+          <button
+            onClick={() => removeClip(selectedClip.id)}
+            className="w-full py-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
+          >
+            🗑️ Eliminar (Del)
+          </button>
+        </div>
       </div>
     </div>
   )
