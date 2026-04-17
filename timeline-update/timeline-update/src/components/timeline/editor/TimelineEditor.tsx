@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { TimelineRuler } from './TimelineRuler'
 import { TimelineTrack } from './TimelineTrack'
@@ -16,7 +16,7 @@ import { useAppStore } from '@/lib/store'
 import {
   ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
   ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
-  Plus, Volume2, VolumeX
+  Plus, ChevronDown
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -31,20 +31,23 @@ export function TimelineEditor() {
   const { status: ffmpegStatus, load: loadFFmpeg, writeFile, readFileAsDataURL } = useFFmpeg()
   const { isProcessing, setProcessing, setProcessingProgress, processingProgress } = useAppStore()
   const timelineContentRef = useRef<HTMLDivElement>(null)
-  const [exportWithAudio, setExportWithAudio] = useState(true)
 
   const totalDuration = useTimelineStore(getTotalDuration)
 
+  // Initialize default tracks
   useEffect(() => {
     initializeDefaultTracks()
   }, [initializeDefaultTracks])
 
+  // Playback timer
   useEffect(() => {
     let animFrame: number
     let lastTime = performance.now()
+
     const tick = (now: number) => {
       const delta = (now - lastTime) / 1000
       lastTime = now
+
       if (isPlaying) {
         const newTime = currentTime + delta
         if (newTime >= totalDuration) {
@@ -54,12 +57,15 @@ export function TimelineEditor() {
           setCurrentTime(newTime)
         }
       }
+
       animFrame = requestAnimationFrame(tick)
     }
+
     animFrame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(animFrame)
   }, [isPlaying, currentTime, totalDuration, setIsPlaying, setCurrentTime])
 
+  // Auto-scroll to keep playhead visible
   useEffect(() => {
     if (!timelineContentRef.current || !isPlaying) return
     const playheadX = currentTime * zoom
@@ -69,9 +75,11 @@ export function TimelineEditor() {
     }
   }, [currentTime, zoom, isPlaying, scrollX, setScrollX])
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
       switch (e.code) {
         case 'Space':
           e.preventDefault()
@@ -99,6 +107,7 @@ export function TimelineEditor() {
     return () => window.removeEventListener('keydown', handler)
   }, [isPlaying, currentTime, totalDuration, setIsPlaying, setCurrentTime])
 
+  // Mouse wheel zoom
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
@@ -108,18 +117,23 @@ export function TimelineEditor() {
       }
     },
     [zoom, setZoom]
-  )  const handleExport = async () => {
+  )
+
+  const handleExport = async () => {
     if (clips.length === 0) {
-      toast.error('Agrega clips al timeline primero')
+      toast.error('Añade clips al timeline primero')
       return
     }
+
     const videoClips = clips.filter((c) => c.type === 'video' && c.file)
     if (videoClips.length === 0) {
       toast.error('Agrega al menos un video para exportar')
       return
     }
+
     setProcessing(true)
     setProcessingProgress(0)
+
     try {
       const ffmpeg = await loadFFmpeg()
       if (!ffmpeg) {
@@ -127,60 +141,51 @@ export function TimelineEditor() {
         setProcessing(false)
         return
       }
-      const audioLabel = exportWithAudio ? 'con audio' : 'sin audio'
-      toast.info('Procesando video ' + audioLabel + '... Esto puede tomar unos minutos.')
 
-      const normalizedFiles: string[] = []
+      toast.info('Procesando video... Esto puede tomar unos minutos.')
+
+      const fileNames: string[] = []
       for (let i = 0; i < videoClips.length; i++) {
         const clip = videoClips[i]
         if (!clip.file) continue
-        const fileName = 'clip_' + i + '.mp4'
-        setProcessingProgress(Math.round(((i + 1) / videoClips.length) * 25))
+
+        const fileName = `clip_${i}.mp4`
+        setProcessingProgress(Math.round(((i + 1) / videoClips.length) * 30))
         await writeFile(ffmpeg, fileName, clip.file)
-        const normalizedFile = 'norm_' + i + '.mp4'
-        const trimStart = clip.trimStart && clip.trimStart > 0 ? clip.trimStart : 0
-        const duration = clip.trimEnd ? clip.trimEnd - trimStart : clip.duration - trimStart
-        if (exportWithAudio) {
+
+        if (clip.trimStart && clip.trimStart > 0) {
+          const trimmedName = `trimmed_${i}.mp4`
+          const duration = clip.trimEnd ? clip.trimEnd - clip.trimStart : clip.duration - clip.trimStart
           await ffmpeg.exec([
-            '-ss', trimStart.toString(),
+            '-ss', clip.trimStart.toString(),
             '-i', fileName,
             '-t', duration.toString(),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
-            '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '128k',
-            '-y',
-            normalizedFile,
+            '-c', 'copy',
+            trimmedName,
           ])
+          fileNames.push(trimmedName)
         } else {
-          await ffmpeg.exec([
-            '-ss', trimStart.toString(),
-            '-i', fileName,
-            '-t', duration.toString(),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
-            '-an',
-            '-y',
-            normalizedFile,
-          ])
+          fileNames.push(fileName)
         }
-        normalizedFiles.push(normalizedFile)
       }
 
-      setProcessingProgress(40)
-      let concatenatedFile = normalizedFiles[0]
-      if (normalizedFiles.length > 1) {
+      setProcessingProgress(50)
+      let concatenatedFile = fileNames[0]
+      if (fileNames.length > 1) {
         concatenatedFile = 'concatenated.mp4'
-        const concatList = normalizedFiles.map((f) => "file '" + f + "'").join('\n')
+        const concatList = fileNames.map((f) => `file '${f}'`).join('\n')
         const encoder = new TextEncoder()
         await ffmpeg.writeFile('concat.txt', encoder.encode(concatList))
         await ffmpeg.exec([
           '-f', 'concat', '-safe', '0',
           '-i', 'concat.txt',
           '-c', 'copy',
-          '-y',
           concatenatedFile,
         ])
       }
 
-      setProcessingProgress(55)
+      // Add text overlays from text clips
+      setProcessingProgress(70)
       const textClips = clips.filter((c) => c.type === 'text' && c.text)
       let finalInput = concatenatedFile
       if (textClips.length > 0) {
@@ -193,28 +198,18 @@ export function TimelineEditor() {
           ? 'h*9/10'
           : '(h-text_h)/2'
         const fontSize = firstText.fontSize || 32
+
         const withText = 'with_text.mp4'
-        if (exportWithAudio) {
-          await ffmpeg.exec([
-            '-i', finalInput,
-            '-vf', "drawtext=text='" + escapedText + "':fontsize=" + fontSize + ":fontcolor=" + (firstText.textColor || 'white') + ":x=(w-text_w)/2:y=" + yPos + ":box=1:boxcolor=black@0.5:boxborderw=5",
-            '-c:a', 'copy',
-            '-y',
-            withText,
-          ])
-        } else {
-          await ffmpeg.exec([
-            '-i', finalInput,
-            '-vf', "drawtext=text='" + escapedText + "':fontsize=" + fontSize + ":fontcolor=" + (firstText.textColor || 'white') + ":x=(w-text_w)/2:y=" + yPos + ":box=1:boxcolor=black@0.5:boxborderw=5",
-            '-an',
-            '-y',
-            withText,
-          ])
-        }
+        await ffmpeg.exec([
+          '-i', finalInput,
+          '-vf', `drawtext=text='${escapedText}':fontsize=${fontSize}:fontcolor=${firstText.textColor || 'white'}:x=(w-text_w)/2:y=${yPos}:box=1:boxcolor=black@0.5:boxborderw=5`,
+          '-c:a', 'copy',
+          withText,
+        ])
         finalInput = withText
       }
 
-      setProcessingProgress(65)
+      // Apply filter if any
       const filteredClip = clips.find((c) => c.type === 'video' && c.filter && c.filter !== 'none')
       if (filteredClip && filteredClip.filter) {
         const filteredFile = 'filtered.mp4'
@@ -227,50 +222,35 @@ export function TimelineEditor() {
         }
         const vf = vfMap[filteredClip.filter]
         if (vf) {
-          if (exportWithAudio) {
-            await ffmpeg.exec(['-i', finalInput, '-vf', vf, '-c:a', 'copy', '-y', filteredFile])
-          } else {
-            await ffmpeg.exec(['-i', finalInput, '-vf', vf, '-an', '-y', filteredFile])
-          }
+          setProcessingProgress(80)
+          await ffmpeg.exec(['-i', finalInput, '-vf', vf, '-c:a', 'copy', filteredFile])
           finalInput = filteredFile
         }
       }
 
-      setProcessingProgress(80)
+      // Final encode
+      setProcessingProgress(85)
       const finalFile = 'output.mp4'
-      if (exportWithAudio) {
-        await ffmpeg.exec([
-          '-i', finalInput,
-          '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
-          '-c:a', 'aac',
-          '-b:a', '128k',
-          '-movflags', '+faststart',
-          '-y',
-          finalFile,
-        ])
-      } else {
-        await ffmpeg.exec([
-          '-i', finalInput,
-          '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
-          '-an',
-          '-movflags', '+faststart',
-          '-y',
-          finalFile,
-        ])
-      }
+      await ffmpeg.exec([
+        '-i', finalInput,
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        finalFile,
+      ])
 
       setProcessingProgress(95)
       const outputUrl = await readFileAsDataURL(ffmpeg, finalFile)
+
       const a = document.createElement('a')
       a.href = outputUrl
-      const audioSuffix = exportWithAudio ? '' : '_sin_audio'
-      a.download = 'videoflow_export' + audioSuffix + '.mp4'
+      a.download = 'videoflow_export.mp4'
       a.click()
 
+      // Save to DB
       const user = useAppStore.getState().user
       if (user) {
         try {
@@ -279,7 +259,7 @@ export function TimelineEditor() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: user.id,
-              title: 'VideoFlow Export' + (exportWithAudio ? '' : ' (sin audio)'),
+              title: 'VideoFlow Export',
               status: 'completed',
               duration: totalDuration,
               resolution: '1080p',
@@ -287,19 +267,23 @@ export function TimelineEditor() {
             }),
           })
         } catch {
+          // silent
         }
       }
 
       setProcessingProgress(100)
-      toast.success('Video exportado ' + audioLabel + ' correctamente!')
+      toast.success('Video exportado correctamente!')
     } catch (error) {
       console.error('Export error:', error)
-      toast.error('Error al exportar. Intenta con un video mas corto.')
+      toast.error('Error al exportar. Intenta con un video más corto.')
     } finally {
       setProcessing(false)
     }
-  }  return (
+  }
+
+  return (
     <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
+      {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -312,103 +296,204 @@ export function TimelineEditor() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Zoom controls */}
           <div className="flex items-center gap-0.5 mr-2 bg-white/5 rounded-md px-1 py-0.5">
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setZoom(zoom - 20)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setZoom(zoom - 20)}
+            >
               <ZoomOut className="h-3 w-3" />
             </Button>
             <span className="text-[10px] text-white/40 font-mono w-8 text-center">{zoom}px</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setZoom(zoom + 20)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setZoom(zoom + 20)}
+            >
               <ZoomIn className="h-3 w-3" />
             </Button>
           </div>
 
+          {/* Transport controls */}
           <div className="flex items-center gap-0.5 mr-2">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(0)} title="Ir al inicio">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setCurrentTime(0)}
+              title="Ir al inicio"
+            >
               <ArrowLeftToLine className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.max(0, currentTime - 1))} title="Retroceder 1s">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setCurrentTime(Math.max(0, currentTime - 1))}
+              title="Retroceder 1s"
+            >
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500" onClick={() => setIsPlaying(!isPlaying)} title={isPlaying ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'}>
-              {isPlaying ? <span className="text-xs font-bold">II</span> : <span className="text-xs font-bold ml-0.5">&#9654;</span>}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500"
+              onClick={() => setIsPlaying(!isPlaying)}
+              title={isPlaying ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'}
+            >
+              {isPlaying ? <span className="text-xs font-bold">II</span> : <span className="text-xs font-bold ml-0.5">▶</span>}
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.min(totalDuration, currentTime + 1))} title="Adelantar 1s">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setCurrentTime(Math.min(totalDuration, currentTime + 1))}
+              title="Adelantar 1s"
+            >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(totalDuration)} title="Ir al final">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
+              onClick={() => setCurrentTime(totalDuration)}
+              title="Ir al final"
+            >
               <ArrowRightToLine className="h-3.5 w-3.5" />
             </Button>
           </div>
 
+          {/* Time display */}
           <span className="text-[10px] text-white/50 font-mono mr-3 min-w-[100px]">
             {formatTime(currentTime)} / {formatTime(totalDuration)}
           </span>
 
           <div className="w-px h-5 bg-white/10" />
 
+          {/* Export */}
           <Button
             variant="ghost"
             size="sm"
-            className={'h-7 ml-2 text-xs flex items-center gap-1.5 ' + (exportWithAudio ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' : 'bg-white/5 text-white/40 hover:bg-white/10 border border-white/10')}
-            onClick={() => setExportWithAudio(!exportWithAudio)}
-            title={exportWithAudio ? 'Exportar con audio' : 'Exportar sin audio'}
+            className="h-7 ml-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20"
+            onClick={handleExport}
+            disabled={isProcessing || clips.length === 0 || ffmpegStatus !== 'ready'}
           >
-            {exportWithAudio ? (<><Volume2 className="h-3 w-3" />Con audio</>) : (<><VolumeX className="h-3 w-3" />Sin audio</>)}
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                {processingProgress}%
+              </>
+            ) : (
+              <>
+                <Download className="h-3 w-3 mr-1.5" />
+                Exportar MP4
+              </>
+            )}
           </Button>
 
-          <Button variant="ghost" size="sm" className="h-7 ml-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20" onClick={handleExport} disabled={isProcessing || clips.length === 0 || ffmpegStatus !== 'ready'}>
-            {isProcessing ? (<><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{processingProgress}%</>) : (<><Download className="h-3 w-3 mr-1.5" />Exportar MP4</>)}
-          </Button>
-
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-red-400 hover:bg-red-400/10" onClick={() => { clearAll(); toast.success('Timeline limpiado') }} disabled={clips.length === 0} title="Limpiar todo">
+          {/* Clear */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-white/30 hover:text-red-400 hover:bg-red-400/10"
+            onClick={() => {
+              clearAll()
+              toast.success('Timeline limpiado')
+            }}
+            disabled={clips.length === 0}
+            title="Limpiar todo"
+          >
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
       </div>
 
+      {/* Main content area: 3-column layout */}
       <div className="flex-1 flex overflow-hidden">
+        {/* Left panel - Media Library */}
         <div className="w-[240px] flex-shrink-0 border-r border-white/5">
           <MediaPanel />
         </div>
 
+        {/* Center - Preview + Timeline */}
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Preview */}
           <div className="p-4 flex-shrink-0">
             <PreviewCanvas />
           </div>
 
+          {/* Timeline area */}
           <div className="flex-1 flex flex-col border-t border-white/5 min-h-0">
+            {/* Timeline toolbar */}
             <div className="flex items-center justify-between px-3 py-1 bg-[#0a0a1f] border-b border-white/5 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Timeline</span>
-                <span className="text-[10px] text-white/20">{tracks.length} pistas &bull; Ctrl+Scroll para zoom</span>
+                <span className="text-[10px] text-white/20">
+                  {tracks.length} pistas • Ctrl+Scroll para zoom
+                </span>
               </div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'video', name: 'Video ' + (tracks.filter(t => t.type === 'video').length + 1), muted: false, locked: false, visible: true, height: 64 })}>
-                  <Plus className="h-3 w-3 mr-1" />Video
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5"
+                  onClick={() => addTrack({ type: 'video', name: `Video ${tracks.filter(t => t.type === 'video').length + 1}`, muted: false, locked: false, visible: true, height: 64 })}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Video
                 </Button>
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'audio', name: 'Audio ' + (tracks.filter(t => t.type === 'audio').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                  <Plus className="h-3 w-3 mr-1" />Audio
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5"
+                  onClick={() => addTrack({ type: 'audio', name: `Audio ${tracks.filter(t => t.type === 'audio').length + 1}`, muted: false, locked: false, visible: true, height: 48 })}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Audio
                 </Button>
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'text', name: 'Texto ' + (tracks.filter(t => t.type === 'text').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                  <Plus className="h-3 w-3 mr-1" />Texto
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5"
+                  onClick={() => addTrack({ type: 'text', name: `Texto ${tracks.filter(t => t.type === 'text').length + 1}`, muted: false, locked: false, visible: true, height: 48 })}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Texto
                 </Button>
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'image', name: 'Imagen ' + (tracks.filter(t => t.type === 'image').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                  <Plus className="h-3 w-3 mr-1" />Imagen
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5"
+                  onClick={() => addTrack({ type: 'image', name: `Imagen ${tracks.filter(t => t.type === 'image').length + 1}`, muted: false, locked: false, visible: true, height: 48 })}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Imagen
                 </Button>
               </div>
             </div>
 
+            {/* Scrollable timeline tracks */}
             <ScrollArea className="flex-1">
               <div ref={timelineContentRef} className="relative min-w-full">
+                {/* Ruler */}
                 <div className="sticky top-0 z-10">
                   <div className="flex">
                     <div className="w-[140px] flex-shrink-0 bg-[#12122a] border-b border-white/5 border-r border-white/5" />
                     <TimelineRuler />
                   </div>
                 </div>
+
+                {/* Tracks */}
                 <div className="relative">
-                  <div className="sticky left-0 pointer-events-none z-20" style={{ width: '140px' }} />
+                  {/* Playhead */}
+                  <div className="sticky left-0 pointer-events-none z-20" style={{ width: `${140}px` }}>
+                    {/* Spacer for playhead alignment */}
+                  </div>
                   <Playhead />
+
                   {tracks.map((track) => (
                     <TimelineTrack key={track.id} track={track} />
                   ))}
@@ -419,18 +504,24 @@ export function TimelineEditor() {
           </div>
         </div>
 
+        {/* Right panel - Properties */}
         <div className="w-[260px] flex-shrink-0 border-l border-white/5">
           <PropertiesPanel />
         </div>
       </div>
 
+      {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
-        <span className="text-[9px] text-white/20">
-          FFmpeg: {ffmpegStatus === 'ready' ? 'Listo' : ffmpegStatus === 'loading' ? 'Cargando...' : ffmpegStatus === 'error' ? 'Error' : 'Iniciando'}
-        </span>
-        <span className="text-[9px] text-white/20">
-          Espacio = Play/Pausa | Flechas = Navegar | Supr = Eliminar clip
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] text-white/20">
+            FFmpeg: {ffmpegStatus === 'ready' ? 'Listo' : ffmpegStatus === 'loading' ? 'Cargando...' : ffmpegStatus === 'error' ? 'Error' : 'Iniciando'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] text-white/20">
+            Espacio = Play/Pausa • ←→ = Navegar • Supr = Eliminar clip
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -440,5 +531,5 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   const ms = Math.floor((seconds % 1) * 10)
-  return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0') + '.' + ms
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms}`
 }
