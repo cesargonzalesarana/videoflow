@@ -27,7 +27,7 @@ const formats: Format[] = [
     id: 'youtube',
     name: 'YouTube',
     platform: 'youtube',
-    icon: '▶️',
+    icon: '\u25B6\uFE0F',
     width: 1920,
     height: 1080,
     fps: 30,
@@ -40,7 +40,7 @@ const formats: Format[] = [
     id: 'instagram-reel',
     name: 'Instagram Reels',
     platform: 'instagram',
-    icon: '📱',
+    icon: '\uD83D\uDCF1',
     width: 1080,
     height: 1920,
     fps: 30,
@@ -53,7 +53,7 @@ const formats: Format[] = [
     id: 'instagram-post',
     name: 'Instagram Post',
     platform: 'instagram',
-    icon: '📷',
+    icon: '\uD83D\uDCF7',
     width: 1080,
     height: 1080,
     fps: 30,
@@ -66,7 +66,7 @@ const formats: Format[] = [
     id: 'tiktok',
     name: 'TikTok',
     platform: 'tiktok',
-    icon: '🎵',
+    icon: '\uD83C\uDFB5',
     width: 1080,
     height: 1920,
     fps: 30,
@@ -79,7 +79,7 @@ const formats: Format[] = [
     id: 'facebook',
     name: 'Facebook',
     platform: 'facebook',
-    icon: '👥',
+    icon: '\uD83D\uDC65',
     width: 1280,
     height: 720,
     fps: 30,
@@ -92,7 +92,7 @@ const formats: Format[] = [
     id: 'twitter',
     name: 'X (Twitter)',
     platform: 'twitter',
-    icon: '🐦',
+    icon: '\uD83D\uDC26',
     width: 1280,
     height: 720,
     fps: 30,
@@ -105,7 +105,7 @@ const formats: Format[] = [
     id: 'linkedin',
     name: 'LinkedIn',
     platform: 'linkedin',
-    icon: '💼',
+    icon: '\uD83D\uDCBC',
     width: 1920,
     height: 1080,
     fps: 30,
@@ -118,7 +118,7 @@ const formats: Format[] = [
     id: 'whatsapp',
     name: 'WhatsApp Status',
     platform: 'whatsapp',
-    icon: '💬',
+    icon: '\uD83D\uDCAC',
     width: 720,
     height: 1280,
     fps: 30,
@@ -131,7 +131,7 @@ const formats: Format[] = [
     id: 'custom',
     name: 'Personalizado',
     platform: 'custom',
-    icon: '⚙️',
+    icon: '\u2699\uFE0F',
     width: 1280,
     height: 720,
     fps: 30,
@@ -187,8 +187,15 @@ export function ExportPanel({ isOpen, onClose }: Props) {
 
     const duration = getProjectDuration()
     const stream = canvas.captureStream(format.fps)
+
+    let mimeType = 'video/webm;codecs=vp9,opus'
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus'
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9'
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8'
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm'
+
     const recorder = new MediaRecorder(stream, {
-      mimeType: 'video/webm;codecs=vp9',
+      mimeType,
       videoBitsPerSecond: format.bitrate,
     })
     chunksRef.current = []
@@ -205,8 +212,6 @@ export function ExportPanel({ isOpen, onClose }: Props) {
       setProgress(100)
     }
 
-    recorder.start()
-
     const videoTrack = tracks.find((t) => t.type === 'video')
     const imageTrack = tracks.find((t) => t.type === 'image')
     const textTrack = tracks.find((t) => t.type === 'text')
@@ -221,16 +226,27 @@ export function ExportPanel({ isOpen, onClose }: Props) {
       videoEl.crossOrigin = 'anonymous'
       videoEl.muted = false
       videoEl.playsInline = true
+      videoEl.preload = 'auto'
       videoEl.src = videoTrack.clips[0].src
       videoEl.loop = false
-      await new Promise<void>((resolve) => { videoEl!.onloadeddata = () => resolve(); videoEl!.load() })
-              try {
-          const aCtx = new AudioContext()
-          const aSrc = aCtx.createMediaElementSource(videoEl)
-          const aDest = aCtx.createMediaStreamDestination()
-          aSrc.connect(aDest)
-          aDest.stream.getAudioTracks().forEach((t: MediaStreamTrack) => stream.addTrack(t))
-        } catch (e) { console.warn('Audio capture failed') }
+      await new Promise<void>((resolve, reject) => {
+        videoEl!.oncanplaythrough = () => resolve()
+        videoEl!.onerror = () => reject(new Error('No se pudo cargar el video'))
+        videoEl!.load()
+      })
+
+      try {
+        const aCtx = new AudioContext()
+        if (aCtx.state === 'suspended') await aCtx.resume()
+        const aSrc = aCtx.createMediaElementSource(videoEl)
+        const aDest = aCtx.createMediaStreamDestination()
+        aSrc.connect(aDest)
+        aDest.stream.getAudioTracks().forEach((t: MediaStreamTrack) => stream.addTrack(t))
+      } catch (e) {
+        console.warn('Audio capture failed, exporting without audio')
+      }
+
+      await videoEl.play()
     }
 
     if (imageTrack && imageTrack.clips.length > 0) {
@@ -246,6 +262,8 @@ export function ExportPanel({ isOpen, onClose }: Props) {
       audioEl.volume = audioTrack.clips[0].volume ?? 1
       audioEl.load()
     }
+
+    recorder.start()
 
     const startTime = performance.now()
     const durationMs = duration * 1000
@@ -272,8 +290,7 @@ export function ExportPanel({ isOpen, onClose }: Props) {
       const activeImageClip = imageTrack?.clips.find((c) => currentSec >= c.startTime && currentSec < c.startTime + c.duration)
       const activeTextClips = textTrack?.clips.filter((c) => currentSec >= c.startTime && currentSec < c.startTime + c.duration)
 
-      if (videoEl && activeVideoClip) {
-        if (videoEl.paused) { videoEl.currentTime = currentSec - activeVideoClip.startTime; videoEl.play().catch(() => {}) }
+      if (videoEl && activeVideoClip && videoEl.readyState >= 2) {
         const s = activeVideoClip.scale ?? 1
         const px = (activeVideoClip.posX ?? 0) * (w / 200)
         const py = (activeVideoClip.posY ?? 0) * (h / 200)
@@ -427,7 +444,7 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Formato</span>
-                      <span className="text-white">WebM (VP9)</span>
+                      <span className="text-white">WebM (VP9 + Audio)</span>
                     </div>
                   </div>
                 </div>
@@ -458,7 +475,7 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                         : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500'
                     }`}
                   >
-                    🎬 Exportar
+                    Exportar
                   </button>
                 </div>
               </>
@@ -486,7 +503,6 @@ export function ExportPanel({ isOpen, onClose }: Props) {
             {status === 'done' && (
               <>
                 <div className="text-center mb-4">
-                  <span className="text-4xl">✅</span>
                   <h3 className="text-lg font-semibold mt-2 text-green-400">Exportacion completa</h3>
                   <p className="text-sm text-gray-400 mt-1">
                     {selectedFormat.icon} {selectedFormat.name} ({selectedFormat.width}x{selectedFormat.height})
@@ -497,7 +513,7 @@ export function ExportPanel({ isOpen, onClose }: Props) {
                     Cerrar
                   </button>
                   <button onClick={download} className="flex-1 py-2.5 rounded-lg bg-green-600 text-white text-sm hover:bg-green-500 transition-colors font-medium">
-                    ⬇ Descargar
+                    Descargar
                   </button>
                 </div>
               </>
