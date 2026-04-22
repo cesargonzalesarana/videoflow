@@ -105,7 +105,9 @@ export function TimelineEditor() {
       }
     },
     [zoom, setZoom]
-  )  const handleExport = async () => {
+  )  
+  
+  const handleExport = async () => {
     const videoClips = clips.filter((c) => c.type === 'video' && c.file)
     if (videoClips.length === 0) {
       toast.error('Agrega al menos un video para exportar')
@@ -139,7 +141,7 @@ export function TimelineEditor() {
       if (exportWithAudio) {
         try {
           audioCtx = new AudioContext()
-          if (audioCtx.state === 'suspended') await audioCtx.resume()
+          if (audioCtx.state === 'suspended') { await audioCtx.resume() }
           const source = audioCtx.createMediaElementSource(video)
           audioDest = audioCtx.createMediaStreamDestination()
           source.connect(audioDest)
@@ -158,7 +160,7 @@ export function TimelineEditor() {
           img.src = ic.previewUrl!
           await new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res() })
           loadedImages.push({ clip: ic, img })
-        } catch { /* skip */ }
+        } catch (e) { /* skip */ }
       }
 
       setProcessingProgress(15)
