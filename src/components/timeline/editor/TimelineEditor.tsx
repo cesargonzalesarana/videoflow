@@ -142,18 +142,19 @@ export function TimelineEditor() {
         const duration = clip.trimEnd ? clip.trimEnd - trimStart : clip.duration - trimStart
         if (exportWithAudio) {
           await ffmpeg.exec([
-            '-ss', trimStart.toString(),
             '-i', fileName,
+            '-ss', trimStart.toString(),
             '-t', duration.toString(),
             '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
-            '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '128k',
+            '-c:a', 'copy',
+            '-map', '0:v:0', '-map', '0:a?',
             '-y',
             normalizedFile,
           ])
         } else {
           await ffmpeg.exec([
-            '-ss', trimStart.toString(),
             '-i', fileName,
+            '-ss', trimStart.toString(),
             '-t', duration.toString(),
             '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
             '-an',
@@ -244,8 +245,7 @@ export function TimelineEditor() {
           '-c:v', 'libx264',
           '-preset', 'fast',
           '-crf', '23',
-          '-c:a', 'aac',
-          '-b:a', '128k',
+          '-c:a', 'copy',
           '-movflags', '+faststart',
           '-y',
           finalFile,
