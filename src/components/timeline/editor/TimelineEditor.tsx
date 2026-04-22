@@ -256,7 +256,9 @@ export function TimelineEditor() {
       toast.error('Error al exportar. Intenta de nuevo.')
       setProcessing(false)
     }
-  }  return (
+  }
+  
+  return (
     <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <div className="flex items-center gap-2">
