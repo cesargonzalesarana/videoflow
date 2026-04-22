@@ -11,8 +11,6 @@ import { PreviewCanvas } from './PreviewCanvas'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { useFFmpeg } from '@/hooks/use-ffmpeg'
-import { useAppStore } from '@/lib/store'
 import {
   ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
   ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
@@ -28,7 +26,6 @@ export function TimelineEditor() {
     addTrack
   } = useTimelineStore()
 
-  const { status: ffmpegStatus, load: loadFFmpeg, writeFile, readFileAsDataURL } = useFFmpeg()
   const { isProcessing, setProcessing, setProcessingProgress, processingProgress } = useAppStore()
   const timelineContentRef = useRef<HTMLDivElement>(null)
   const [exportWithAudio, setExportWithAudio] = useState(true)
@@ -109,10 +106,6 @@ export function TimelineEditor() {
     },
     [zoom, setZoom]
   )  const handleExport = async () => {
-    if (clips.length === 0) {
-      toast.error('Agrega clips al timeline primero')
-      return
-    }
     const videoClips = clips.filter((c) => c.type === 'video' && c.file)
     if (videoClips.length === 0) {
       toast.error('Agrega al menos un video para exportar')
@@ -121,181 +114,143 @@ export function TimelineEditor() {
     setProcessing(true)
     setProcessingProgress(0)
     try {
-      const ffmpeg = await loadFFmpeg()
-      if (!ffmpeg) {
-        toast.error('Error al cargar el motor de video')
-        setProcessing(false)
-        return
-      }
-      const audioLabel = exportWithAudio ? 'con audio' : 'sin audio'
-      toast.info('Procesando video ' + audioLabel + '... Esto puede tomar unos minutos.')
+      const clip = videoClips[0]
+      const objectUrl = URL.createObjectURL(clip.file!)
+      const canvas = document.createElement('canvas')
+      canvas.width = 1280
+      canvas.height = 720
+      const ctx = canvas.getContext('2d')!
+      const video = document.createElement('video')
+      video.src = objectUrl
+      video.playsInline = true
+      video.preload = 'auto'
 
-      const normalizedFiles: string[] = []
-      for (let i = 0; i < videoClips.length; i++) {
-        const clip = videoClips[i]
-        if (!clip.file) continue
-        const fileName = 'clip_' + i + '.mp4'
-        setProcessingProgress(Math.round(((i + 1) / videoClips.length) * 25))
-        await writeFile(ffmpeg, fileName, clip.file)
-        const normalizedFile = 'norm_' + i + '.mp4'
-        const trimStart = clip.trimStart && clip.trimStart > 0 ? clip.trimStart : 0
-        const duration = clip.trimEnd ? clip.trimEnd - trimStart : clip.duration - trimStart
-        if (exportWithAudio) {
-          await ffmpeg.exec([
-            '-i', fileName,
-            '-ss', trimStart.toString(),
-            '-t', duration.toString(),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
-            '-c:a', 'copy',
-            '-map', '0:v:0', '-map', '0:a?',
-            '-y',
-            normalizedFile,
-          ])
-        } else {
-          await ffmpeg.exec([
-            '-i', fileName,
-            '-ss', trimStart.toString(),
-            '-t', duration.toString(),
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
-            '-an',
-            '-y',
-            normalizedFile,
-          ])
-        }
-        normalizedFiles.push(normalizedFile)
-      }
+      setProcessingProgress(5)
+      await new Promise<void>((resolve, reject) => {
+        video.oncanplaythrough = () => resolve()
+        video.onerror = () => reject(new Error('No se pudo cargar el video'))
+        video.load()
+      })
 
-      setProcessingProgress(40)
-      let concatenatedFile = normalizedFiles[0]
-      if (normalizedFiles.length > 1) {
-        concatenatedFile = 'concatenated.mp4'
-        const concatList = normalizedFiles.map((f) => "file '" + f + "'").join('\n')
-        const encoder = new TextEncoder()
-        await ffmpeg.writeFile('concat.txt', encoder.encode(concatList))
-        await ffmpeg.exec([
-          '-f', 'concat', '-safe', '0',
-          '-i', 'concat.txt',
-          '-c', 'copy',
-          '-y',
-          concatenatedFile,
-        ])
-      }
+      setProcessingProgress(10)
 
-      setProcessingProgress(55)
-      const textClips = clips.filter((c) => c.type === 'text' && c.text)
-      let finalInput = concatenatedFile
-      if (textClips.length > 0) {
-        const firstText = textClips[0]
-        const textContent = firstText.text || ''
-        const escapedText = textContent.replace(/'/g, "\\'").replace(/:/g, "\\:")
-        const yPos = firstText.positionY < 33
-          ? 'h/10'
-          : firstText.positionY > 66
-          ? 'h*9/10'
-          : '(h-text_h)/2'
-        const fontSize = firstText.fontSize || 32
-        const withText = 'with_text.mp4'
-        if (exportWithAudio) {
-          await ffmpeg.exec([
-            '-i', finalInput,
-            '-vf', "drawtext=text='" + escapedText + "':fontsize=" + fontSize + ":fontcolor=" + (firstText.textColor || 'white') + ":x=(w-text_w)/2:y=" + yPos + ":box=1:boxcolor=black@0.5:boxborderw=5",
-            '-c:a', 'copy',
-            '-y',
-            withText,
-          ])
-        } else {
-          await ffmpeg.exec([
-            '-i', finalInput,
-            '-vf', "drawtext=text='" + escapedText + "':fontsize=" + fontSize + ":fontcolor=" + (firstText.textColor || 'white') + ":x=(w-text_w)/2:y=" + yPos + ":box=1:boxcolor=black@0.5:boxborderw=5",
-            '-an',
-            '-y',
-            withText,
-          ])
-        }
-        finalInput = withText
-      }
-
-      setProcessingProgress(65)
-      const filteredClip = clips.find((c) => c.type === 'video' && c.filter && c.filter !== 'none')
-      if (filteredClip && filteredClip.filter) {
-        const filteredFile = 'filtered.mp4'
-        const vfMap: Record<string, string> = {
-          grayscale: 'hue=s=0',
-          sepia: 'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131',
-          blur: 'boxblur=2',
-          'brightness-up': 'eq=brightness=0.3',
-          'contrast-up': 'eq=contrast=1.3',
-        }
-        const vf = vfMap[filteredClip.filter]
-        if (vf) {
-          if (exportWithAudio) {
-            await ffmpeg.exec(['-i', finalInput, '-vf', vf, '-c:a', 'copy', '-y', filteredFile])
-          } else {
-            await ffmpeg.exec(['-i', finalInput, '-vf', vf, '-an', '-y', filteredFile])
-          }
-          finalInput = filteredFile
-        }
-      }
-
-      setProcessingProgress(80)
-      const finalFile = 'output.mp4'
+      let audioCtx: AudioContext | null = null
+      let audioDest: MediaStreamAudioDestinationNode | null = null
       if (exportWithAudio) {
-        await ffmpeg.exec([
-          '-i', finalInput,
-          '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
-          '-c:a', 'copy',
-          '-movflags', '+faststart',
-          '-y',
-          finalFile,
-        ])
-      } else {
-        await ffmpeg.exec([
-          '-i', finalInput,
-          '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
-          '-an',
-          '-movflags', '+faststart',
-          '-y',
-          finalFile,
-        ])
-      }
-
-      setProcessingProgress(95)
-      const outputUrl = await readFileAsDataURL(ffmpeg, finalFile)
-      const a = document.createElement('a')
-      a.href = outputUrl
-      const audioSuffix = exportWithAudio ? '' : '_sin_audio'
-      a.download = 'videoflow_export' + audioSuffix + '.mp4'
-      a.click()
-
-      const user = useAppStore.getState().user
-      if (user) {
         try {
-          await fetch('/api/videos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              title: 'VideoFlow Export' + (exportWithAudio ? '' : ' (sin audio)'),
-              status: 'completed',
-              duration: totalDuration,
-              resolution: '1080p',
-              format: 'mp4',
-            }),
-          })
-        } catch {
+          audioCtx = new AudioContext()
+          if (audioCtx.state === 'suspended') await audioCtx.resume()
+          const source = audioCtx.createMediaElementSource(video)
+          audioDest = audioCtx.createMediaStreamDestination()
+          source.connect(audioDest)
+        } catch (e) {
+          console.warn('Audio no disponible, exportando sin audio')
         }
       }
 
-      setProcessingProgress(100)
-      toast.success('Video exportado ' + audioLabel + ' correctamente!')
+      const textClips = clips.filter((c) => c.type === 'text' && c.text)
+      const imageClips = clips.filter((c) => c.type === 'image' && c.previewUrl)
+      const loadedImages: { clip: typeof imageClips[0]; img: HTMLImageElement }[] = []
+      for (const ic of imageClips) {
+        try {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.src = ic.previewUrl!
+          await new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res() })
+          loadedImages.push({ clip: ic, img })
+        } catch { /* skip */ }
+      }
+
+      setProcessingProgress(15)
+      const canvasStream = canvas.captureStream(30)
+      const tracks = [...canvasStream.getVideoTracks()]
+      if (exportWithAudio && audioDest) {
+        tracks.push(...audioDest.stream.getAudioTracks())
+      }
+      const combinedStream = new MediaStream(tracks)
+
+      let mimeType = 'video/webm;codecs=vp9,opus'
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus'
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm'
+
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 5000000 })
+      const chunks: Blob[] = []
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'videoflow_export' + (exportWithAudio ? '' : '_sin_audio') + '.webm'
+        a.click()
+        URL.revokeObjectURL(url)
+        URL.revokeObjectURL(objectUrl)
+      }
+
+      recorder.start(200)
+      setProcessingProgress(20)
+
+      const trimStart = clip.trimStart || 0
+      const exportDuration = clip.duration
+      video.currentTime = trimStart
+      await video.play()
+      setProcessingProgress(25)
+
+      const renderFrame = () => {
+        if (video.paused || video.ended || video.currentTime >= trimStart + exportDuration) {
+          video.pause()
+          if (recorder.state !== 'inactive') recorder.stop()
+          if (audioCtx) audioCtx.close()
+          setProcessingProgress(100)
+          toast.success('Video exportado ' + (exportWithAudio ? 'con' : 'sin') + ' audio!')
+          setProcessing(false)
+          return
+        }
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        if (video.readyState >= 2) {
+          const vw = video.videoWidth || canvas.width
+          const vh = video.videoHeight || canvas.height
+          const scale = Math.min(canvas.width / vw, canvas.height / vh)
+          const dw = vw * scale
+          const dh = vh * scale
+          ctx.drawImage(video, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh)
+        }
+
+        const t = video.currentTime
+        loadedImages.forEach(({ clip: ic, img }) => {
+          if (t >= ic.startTime && t < ic.startTime + ic.duration) {
+            const s = (ic.scale || 100) / 100
+            const iw = img.naturalWidth * s * (canvas.height / img.naturalHeight)
+            const ih = canvas.height * s
+            ctx.globalAlpha = (ic.opacity || 100) / 100
+            ctx.drawImage(img, ((ic.positionX || 50) / 100) * canvas.width - iw / 2, ((ic.positionY || 50) / 100) * canvas.height - ih / 2, iw, ih)
+            ctx.globalAlpha = 1
+          }
+        })
+
+        textClips.filter((c) => c.text && t >= c.startTime && t < c.startTime + c.duration).forEach((tc) => {
+          const fs = ((tc.fontSize || 32) / 720) * canvas.height
+          ctx.font = 'bold ' + fs + 'px system-ui, sans-serif'
+          ctx.fillStyle = tc.textColor || '#ffffff'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.shadowColor = 'rgba(0,0,0,0.8)'
+          ctx.shadowBlur = 8
+          ctx.fillText(tc.text || '', ((tc.positionX || 50) / 100) * canvas.width, ((tc.positionY || 50) / 100) * canvas.height)
+          ctx.shadowBlur = 0
+          ctx.shadowColor = 'transparent'
+        })
+
+        const elapsed = video.currentTime - trimStart
+        setProcessingProgress(Math.min(95, Math.round(25 + (elapsed / exportDuration) * 70)))
+        requestAnimationFrame(renderFrame)
+      }
+      requestAnimationFrame(renderFrame)
     } catch (error) {
       console.error('Export error:', error)
-      toast.error('Error al exportar. Intenta con un video mas corto.')
-    } finally {
+      toast.error('Error al exportar. Intenta de nuevo.')
       setProcessing(false)
     }
   }  return (
@@ -356,8 +311,8 @@ export function TimelineEditor() {
             {exportWithAudio ? (<><Volume2 className="h-3 w-3" />Con audio</>) : (<><VolumeX className="h-3 w-3" />Sin audio</>)}
           </Button>
 
-          <Button variant="ghost" size="sm" className="h-7 ml-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20" onClick={handleExport} disabled={isProcessing || clips.length === 0 || ffmpegStatus !== 'ready'}>
-            {isProcessing ? (<><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{processingProgress}%</>) : (<><Download className="h-3 w-3 mr-1.5" />Exportar MP4</>)}
+          <Button variant="ghost" size="sm" className="h-7 ml-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20" onClick={handleExport} disabled={isProcessing || clips.length === 0}>
+            {isProcessing ? (<><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{processingProgress}%</>) : (<><Download className="h-3 w-3 mr-1.5" />Exportar WebM</>)}
           </Button>
 
           <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-red-400 hover:bg-red-400/10" onClick={() => { clearAll(); toast.success('Timeline limpiado') }} disabled={clips.length === 0} title="Limpiar todo">
@@ -426,7 +381,7 @@ export function TimelineEditor() {
 
       <div className="flex items-center justify-between px-4 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <span className="text-[9px] text-white/20">
-          FFmpeg: {ffmpegStatus === 'ready' ? 'Listo' : ffmpegStatus === 'loading' ? 'Cargando...' : ffmpegStatus === 'error' ? 'Error' : 'Iniciando'}
+          Exporta en WebM | Compatible con YouTube, Instagram, TikTok, Facebook
         </span>
         <span className="text-[9px] text-white/20">
           Espacio = Play/Pausa | Flechas = Navegar | Supr = Eliminar clip
