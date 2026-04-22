@@ -219,11 +219,18 @@ export function ExportPanel({ isOpen, onClose }: Props) {
     if (videoTrack && videoTrack.clips.length > 0) {
       videoEl = document.createElement('video')
       videoEl.crossOrigin = 'anonymous'
-      videoEl.muted = true
+      videoEl.muted = false
       videoEl.playsInline = true
       videoEl.src = videoTrack.clips[0].src
       videoEl.loop = false
       await new Promise<void>((resolve) => { videoEl!.onloadeddata = () => resolve(); videoEl!.load() })
+              try {
+          const aCtx = new AudioContext()
+          const aSrc = aCtx.createMediaElementSource(videoEl)
+          const aDest = aCtx.createMediaStreamDestination()
+          aSrc.connect(aDest)
+          aDest.stream.getAudioTracks().forEach((t: MediaStreamTrack) => stream.addTrack(t))
+        } catch (e) { console.warn('Audio capture failed') }
     }
 
     if (imageTrack && imageTrack.clips.length > 0) {
