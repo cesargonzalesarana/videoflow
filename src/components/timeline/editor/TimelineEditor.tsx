@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
@@ -11,6 +11,7 @@ import { PreviewCanvas } from './PreviewCanvas'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { useAppStore } from '@/lib/store'
 import {
   ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
   ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
@@ -105,8 +106,8 @@ export function TimelineEditor() {
       }
     },
     [zoom, setZoom]
-  )  
-  
+  )
+
   const handleExport = async () => {
     const videoClips = clips.filter((c) => c.type === 'video' && c.file)
     if (videoClips.length === 0) {
@@ -141,7 +142,7 @@ export function TimelineEditor() {
       if (exportWithAudio) {
         try {
           audioCtx = new AudioContext()
-          if (audioCtx.state === 'suspended') { await audioCtx.resume() }
+          if (audioCtx.state === 'suspended') await audioCtx.resume()
           const source = audioCtx.createMediaElementSource(video)
           audioDest = audioCtx.createMediaStreamDestination()
           source.connect(audioDest)
@@ -160,16 +161,16 @@ export function TimelineEditor() {
           img.src = ic.previewUrl!
           await new Promise<void>((res) => { img.onload = () => res(); img.onerror = () => res() })
           loadedImages.push({ clip: ic, img })
-        } catch (e) { /* skip */ }
+        } catch { /* skip */ }
       }
 
       setProcessingProgress(15)
       const canvasStream = canvas.captureStream(30)
-      const tracks = [...canvasStream.getVideoTracks()]
+      const streamTracks = [...canvasStream.getVideoTracks()]
       if (exportWithAudio && audioDest) {
-        tracks.push(...audioDest.stream.getAudioTracks())
+        streamTracks.push(...audioDest.stream.getAudioTracks())
       }
-      const combinedStream = new MediaStream(tracks)
+      const combinedStream = new MediaStream(streamTracks)
 
       let mimeType = 'video/webm;codecs=vp9,opus'
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8,opus'
