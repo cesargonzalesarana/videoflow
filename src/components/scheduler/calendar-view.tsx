@@ -52,7 +52,7 @@ export function CalendarView() {
     if (!user?.id) return
     try {
       setLoading(true)
-      const res = await fetch(`/api/schedule?userId=${user.id}`)
+      const res = await fetch('/api/schedule')
       const data = await res.json()
       setPosts(data.posts || [])
     } catch (error) {
@@ -87,7 +87,6 @@ export function CalendarView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id,
           videoId: 'manual',
           platform: newPost.platform,
           scheduledAt: scheduledAt.toISOString(),

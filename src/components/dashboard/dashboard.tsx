@@ -31,8 +31,8 @@ export function Dashboard() {
       if (!user?.id) return
       try {
         const [videosRes, postsRes] = await Promise.all([
-          fetch(`/api/videos?userId=${user.id}`),
-          fetch(`/api/schedule?userId=${user.id}`)
+          fetch('/api/videos'),
+          fetch('/api/schedule')
         ])
         const videosData = await videosRes.json()
         const postsData = await postsRes.json()

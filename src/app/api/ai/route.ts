@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const body = await request.json()
     const { action, prompt, context } = body
 
@@ -86,7 +90,8 @@ export async function POST(request: NextRequest) {
 
       const titles = completion.choices[0]?.message?.content || 'No se pudieron generar títulos'
       return NextResponse.json({ titles })
-    }    
+    }
+
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 })
   } catch (error: unknown) {
     console.error('AI error:', error)

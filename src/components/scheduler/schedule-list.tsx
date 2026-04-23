@@ -38,7 +38,7 @@ export function ScheduleList() {
     if (!user?.id) return
     try {
       setLoading(true)
-      const res = await fetch(`/api/schedule?userId=${user.id}`)
+      const res = await fetch('/api/schedule')
       const data = await res.json()
       setPosts(data.posts || [])
     } catch (error) {

@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
-    }
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
 
     const posts = await db.scheduledPost.findMany({
-      where: { userId },
+      where: { userId: auth.userId },
       include: { video: { select: { title: true, thumbnailUrl: true } } },
       orderBy: { scheduledAt: 'asc' }
     })
@@ -25,19 +22,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, videoId, platform, scheduledAt, caption, hashtags } = body
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
 
-    if (!userId || !videoId || !platform || !scheduledAt) {
+    const body = await request.json()
+    const { videoId, platform, scheduledAt, caption, hashtags } = body
+
+    if (!videoId || !platform || !scheduledAt) {
       return NextResponse.json(
-        { error: 'userId, videoId, platform y scheduledAt son requeridos' },
+        { error: 'videoId, platform y scheduledAt son requeridos' },
         { status: 400 }
       )
     }
 
     const post = await db.scheduledPost.create({
       data: {
-        userId, videoId, platform,
+        userId: auth.userId,
+        videoId, platform,
         scheduledAt: new Date(scheduledAt),
         caption: caption || null,
         hashtags: hashtags || null,
@@ -53,6 +54,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const body = await request.json()
     const { id, ...updates } = body
 
@@ -62,6 +66,11 @@ export async function PUT(request: NextRequest) {
 
     if (updates.scheduledAt) {
       updates.scheduledAt = new Date(updates.scheduledAt)
+    }
+
+    const existing = await db.scheduledPost.findUnique({ where: { id } })
+    if (!existing || existing.userId !== auth.userId) {
+      return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
     }
 
     const post = await db.scheduledPost.update({
@@ -78,11 +87,19 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    }
+
+    const existing = await db.scheduledPost.findUnique({ where: { id } })
+    if (!existing || existing.userId !== auth.userId) {
+      return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
     }
 
     await db.scheduledPost.delete({ where: { id } })

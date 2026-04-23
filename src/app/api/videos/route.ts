@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
-    }
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
 
     const videos = await db.video.findMany({
-      where: { userId },
+      where: { userId: auth.userId },
       orderBy: { createdAt: 'desc' }
     })
 
@@ -24,16 +21,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, title, description, status, videoUrl, thumbnailUrl, duration, resolution, format } = body
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
 
-    if (!userId || !title) {
-      return NextResponse.json({ error: 'userId y title son requeridos' }, { status: 400 })
+    const body = await request.json()
+    const { title, description, status, videoUrl, thumbnailUrl, duration, resolution, format } = body
+
+    if (!title) {
+      return NextResponse.json({ error: 'title requerido' }, { status: 400 })
     }
 
     const video = await db.video.create({
       data: {
-        userId, title, description,
+        userId: auth.userId,
+        title, description,
         status: status || 'draft',
         videoUrl: videoUrl || null,
         thumbnailUrl: thumbnailUrl || null,
@@ -52,11 +53,19 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const body = await request.json()
     const { id, ...updates } = body
 
     if (!id) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    }
+
+    const existing = await db.video.findUnique({ where: { id } })
+    if (!existing || existing.userId !== auth.userId) {
+      return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
     }
 
     const video = await db.video.update({
@@ -73,11 +82,19 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    }
+
+    const existing = await db.video.findUnique({ where: { id } })
+    if (!existing || existing.userId !== auth.userId) {
+      return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
     }
 
     await db.video.delete({ where: { id } })

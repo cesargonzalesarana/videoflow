@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import ZAI from 'z-ai-web-dev-sdk'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 // Cached trends data
 let cachedTrends: any[] | null = null
 let lastFetch = 0
 const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUser(request)
+    if (!auth.success) return auth.response!
+
     const now = Date.now()
-    
+
     // Return cached data if still fresh
     if (cachedTrends && now - lastFetch < CACHE_DURATION) {
       return NextResponse.json({ trends: cachedTrends })
@@ -17,7 +21,7 @@ export async function GET() {
 
     // Fetch fresh trends using AI
     const zai = await ZAI.create()
-    
+
     const completion = await zai.chat.completions.create({
       messages: [
         {
@@ -38,7 +42,7 @@ export async function GET() {
     })
 
     const content = completion.choices[0]?.message?.content || '[]'
-    
+
     // Try to parse JSON from the response
     let trends: any[] = []
     try {
