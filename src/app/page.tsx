@@ -12,6 +12,7 @@ import { ScheduleList } from '@/components/scheduler/schedule-list'
 import { TrendsFeed } from '@/components/ai/trends-feed'
 import { ScriptGenerator } from '@/components/ai/script-generator'
 import { SettingsPanel } from '@/components/settings/settings-panel'
+import { ProjectList } from '@/components/projects/project-list'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export default function Home() {
@@ -71,6 +72,7 @@ export default function Home() {
               transition={{ duration: 0.2 }}
             >
               {currentView === 'dashboard' && <Dashboard />}
+              {currentView === 'projects' && <ProjectList />}
               {currentView === 'video-creator' && <div className="-m-4 md:-m-6 h-[calc(100vh-64px)]"><VideoCreator /></div>}
               {currentView === 'scheduler' && (
                 <div className="space-y-6">

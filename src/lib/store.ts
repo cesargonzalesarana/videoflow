@@ -1,18 +1,20 @@
 import { create } from 'zustand'
 
-export type AppView = 
-  | 'landing' 
-  | 'dashboard' 
-  | 'video-creator' 
-  | 'scheduler' 
-  | 'ai-trends' 
+export type AppView =
+  | 'landing'
+  | 'dashboard'
+  | 'projects'
+  | 'video-creator'
+  | 'scheduler'
+  | 'ai-trends'
   | 'settings'
 
-export type SidebarSection = 
-  | 'dashboard' 
-  | 'video-creator' 
-  | 'scheduler' 
-  | 'ai-trends' 
+export type SidebarSection =
+  | 'dashboard'
+  | 'projects'
+  | 'video-creator'
+  | 'scheduler'
+  | 'ai-trends'
   | 'settings'
 
 export interface User {
@@ -70,14 +72,12 @@ export interface TimelineClip {
 }
 
 interface AppState {
-  // View state
   currentView: AppView
   sidebarOpen: boolean
   setView: (view: AppView) => void
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
 
-  // Auth state
   user: User | null
   isAuthenticated: boolean
   isAuthLoading: boolean
@@ -87,47 +87,46 @@ interface AppState {
   login: (user: User) => void
   logout: () => void
 
-  // Videos
   videos: Video[]
   setVideos: (videos: Video[]) => void
   addVideo: (video: Video) => void
   updateVideo: (id: string, updates: Partial<Video>) => void
   removeVideo: (id: string) => void
 
-  // Scheduled posts
   scheduledPosts: ScheduledPost[]
   setScheduledPosts: (posts: ScheduledPost[]) => void
   addScheduledPost: (post: ScheduledPost) => void
   updateScheduledPost: (id: string, updates: Partial<ScheduledPost>) => void
   removeScheduledPost: (id: string) => void
 
-  // AI Trends
   trends: TrendTopic[]
   setTrends: (trends: TrendTopic[]) => void
 
-  // Timeline
   timelineClips: TimelineClip[]
   addTimelineClip: (clip: TimelineClip) => void
   removeTimelineClip: (id: string) => void
   updateTimelineClip: (id: string, updates: Partial<TimelineClip>) => void
   clearTimeline: () => void
 
-  // Processing state
   isProcessing: boolean
   processingProgress: number
   setProcessing: (processing: boolean) => void
   setProcessingProgress: (progress: number) => void
+
+  currentProjectId: string | null
+  currentProjectName: string | null
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  setCurrentProjectId: (id: string | null, name?: string) => void
+  setSaveStatus: (status: 'idle' | 'saving' | 'saved' | 'error') => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  // View state
   currentView: 'landing',
   sidebarOpen: false,
   setView: (view) => set({ currentView: view }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  // Auth state
   user: null,
   isAuthenticated: false,
   isAuthLoading: false,
@@ -135,9 +134,8 @@ export const useAppStore = create<AppState>((set) => ({
   setAuthenticated: (auth) => set({ isAuthenticated: auth }),
   setAuthLoading: (loading) => set({ isAuthLoading: loading }),
   login: (user) => set({ user, isAuthenticated: true, isAuthLoading: false, currentView: 'dashboard' }),
-  logout: () => set({ user: null, isAuthenticated: false, currentView: 'landing', videos: [], scheduledPosts: [], trends: [], timelineClips: [] }),
+  logout: () => set({ user: null, isAuthenticated: false, currentView: 'landing', videos: [], scheduledPosts: [], trends: [], timelineClips: [], currentProjectId: null, currentProjectName: null }),
 
-  // Videos
   videos: [],
   setVideos: (videos) => set({ videos }),
   addVideo: (video) => set((state) => ({ videos: [video, ...state.videos] })),
@@ -148,7 +146,6 @@ export const useAppStore = create<AppState>((set) => ({
     videos: state.videos.filter((v) => v.id !== id)
   })),
 
-  // Scheduled posts
   scheduledPosts: [],
   setScheduledPosts: (posts) => set({ scheduledPosts: posts }),
   addScheduledPost: (post) => set((state) => ({ scheduledPosts: [post, ...state.scheduledPosts] })),
@@ -159,11 +156,9 @@ export const useAppStore = create<AppState>((set) => ({
     scheduledPosts: state.scheduledPosts.filter((p) => p.id !== id)
   })),
 
-  // AI Trends
   trends: [],
   setTrends: (trends) => set({ trends }),
 
-  // Timeline
   timelineClips: [],
   addTimelineClip: (clip) => set((state) => ({ timelineClips: [...state.timelineClips, clip] })),
   removeTimelineClip: (id) => set((state) => ({
@@ -174,9 +169,14 @@ export const useAppStore = create<AppState>((set) => ({
   })),
   clearTimeline: () => set({ timelineClips: [] }),
 
-  // Processing state
   isProcessing: false,
   processingProgress: 0,
   setProcessing: (processing) => set({ isProcessing: processing }),
   setProcessingProgress: (progress) => set({ processingProgress: progress }),
+
+  currentProjectId: null,
+  currentProjectName: null,
+  saveStatus: 'idle',
+  setCurrentProjectId: (id, name) => set({ currentProjectId: id, currentProjectName: name || null, saveStatus: 'idle' }),
+  setSaveStatus: (saveStatus) => set({ saveStatus }),
 }))

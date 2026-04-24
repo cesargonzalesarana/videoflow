@@ -10,6 +10,7 @@ import { PreviewCanvas } from './PreviewCanvas'
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { ExportPanel } from './ExportPanel'
+import { useAutoSave } from '@/hooks/use-auto-save'
 
 export function TimelineEditor() {
   const {
@@ -17,10 +18,14 @@ export function TimelineEditor() {
     setCurrentTime, setIsPlaying, setZoom, setSelectedClipId,
     removeClip, splitClip, duplicateClip, setSnapEnabled, undo, redo
   } = useTimelineStore()
+  const { setView, currentProjectName, saveStatus } = useAppStore()
   const timelineRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number>(0)
   const lastTimeRef = useRef<number>(0)
   const currentTimeRef = useRef<number>(0)
+  const [showExport, setShowExport] = useState(false)
+
+  useAutoSave()
 
   useEffect(() => {
     currentTimeRef.current = currentTime
@@ -108,20 +113,38 @@ export function TimelineEditor() {
   }
 
   const totalClips = tracks.reduce((sum, t) => sum + t.clips.length, 0)
-    const [showExport, setShowExport] = useState(false)
+
+  const saveStatusText = {
+    idle: '',
+    saving: 'Guardando...',
+    saved: 'Guardado',
+    error: 'Error al guardar',
+  }
+
+  const saveStatusColor = {
+    idle: '',
+    saving: 'text-yellow-400',
+    saved: 'text-green-400',
+    error: 'text-red-400',
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#1a1a2e] text-white overflow-hidden rounded-lg">
       <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-[#2a2a4a] rounded-t-lg">
         <div className="flex items-center gap-3">
-          <button onClick={() => useAppStore.getState().setCurrentView('dashboard')} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
+          <button onClick={() => setView('projects')} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             Volver
           </button>
           <span className="text-gray-600">|</span>
           <h1 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            VideoFlow Editor
+            {currentProjectName || 'VideoFlow Editor'}
           </h1>
+          {saveStatus !== 'idle' && (
+            <span className={`text-xs ${saveStatusColor[saveStatus]}`}>
+              {saveStatusText[saveStatus]}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={undo} className="w-8 h-8 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Deshacer (Ctrl+Z)">
@@ -154,25 +177,15 @@ export function TimelineEditor() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSnapEnabled(!snapEnabled)}
-            className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${snapEnabled ? 'bg-purple-600 text-white' : 'bg-[#2a2a4a] text-gray-500'}`}
-            title="Ajuste magnetico"
-          >
-            🧲 Snap
-          </button>
+          <button onClick={() => setSnapEnabled(!snapEnabled)} className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${snapEnabled ? 'bg-purple-600 text-white' : 'bg-[#2a2a4a] text-gray-500'}`} title="Ajuste magnetico">Snap</button>
           <span className="text-xs text-gray-400">Zoom</span>
           <input type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-20 accent-purple-500" />
           <span className="text-xs text-gray-400 w-8">{zoom}x</span>
-                    <button
-            onClick={() => setShowExport(true)}
-            className="ml-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-medium transition-colors flex items-center gap-1"
-            title="Exportar video"
-          >
+          <button onClick={() => setShowExport(true)} className="ml-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-medium transition-colors flex items-center gap-1" title="Exportar video">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             Exportar
           </button>
-             <ExportPanel isOpen={showExport} onClose={() => setShowExport(false)} />
+          <ExportPanel isOpen={showExport} onClose={() => setShowExport(false)} />
         </div>
       </div>
 
@@ -205,7 +218,7 @@ export function TimelineEditor() {
           <span>S: Cortar</span>
           <span>Ctrl+D: Duplicar</span>
           <span>Del: Eliminar</span>
-          <span>←→: Avanzar</span>
+          <span>Flechas: Avanzar</span>
         </div>
       </div>
     </div>
