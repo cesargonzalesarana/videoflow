@@ -3,3 +3,8 @@ node_modules
 .env
 .env.local
 *.log
+ts-errors.txt
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
