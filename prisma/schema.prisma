@@ -15,8 +15,21 @@ model User {
   password  String
   videos    Video[]
   posts     ScheduledPost[]
+  projects  Project[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  tracksJson  String   @db.Text
+  duration    Float    @default(300)
+  thumbnailUrl String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Video {
