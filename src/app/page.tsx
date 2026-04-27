@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { AuthForm } from '@/components/auth/auth-form'
+import { LandingPage } from '@/components/landing/landing-page'
 import { Navbar } from '@/components/layout/navbar'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Dashboard } from '@/components/dashboard/dashboard'
@@ -52,7 +53,7 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return <AuthForm />
+    return <LandingPage />
   }
 
   return (
