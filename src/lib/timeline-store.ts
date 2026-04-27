@@ -6,6 +6,7 @@ export interface Clip {
   type: 'video' | 'audio' | 'text' | 'image'
   name: string
   src?: string
+  storagePath?: string
   startTime: number
   duration: number
   volume?: number
