@@ -18,6 +18,8 @@ export function AuthForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
   const { login } = useAppStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,6 +47,29 @@ export function AuthForm() {
       toast.success(`¡Bienvenido${isRegister ? '' : ' de nuevo'}, ${data.user.name}!`)
     } catch {
       toast.error('Error de conexión. Intenta de nuevo.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async function() {
+    if (!forgotEmail) {
+      toast.error('Ingresa tu email')
+      return
+    }
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || 'Error al enviar enlace'); return }
+      toast.success('Se envio el enlace de recuperacion a tu email')
+      setShowForgot(false)
+    } catch {
+      toast.error('Error de conexion')
     } finally {
       setIsLoading(false)
     }
@@ -229,6 +254,10 @@ export function AuthForm() {
                           {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
                         </Button>
                       </form>
+
+                        {!isRegister && !showForgot && (
+                          <button type='button' onClick={function() { setShowForgot(true) }} className='w-full text-center text-sm text-purple-400 hover:text-purple-300 mt-2 transition-colors'>Olvidaste tu contrasena?</button>
+                        )}
 
                       {!isRegister && (
                         <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/30">
