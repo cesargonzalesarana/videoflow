@@ -10,8 +10,6 @@ export type AppView =
   | 'settings'
   | 'templates'
   | 'media'
-  | 'media'
-
 export type SidebarSection =
   | 'dashboard'
   | 'projects'
@@ -20,7 +18,6 @@ export type SidebarSection =
   | 'ai-trends'
   | 'settings'
   | 'templates'
-  | 'media'
   | 'media'
 
 export interface User {
@@ -186,3 +183,4 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentProjectId: (id, name) => set({ currentProjectId: id, currentProjectName: name || null, saveStatus: 'idle' }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
 }))
+
