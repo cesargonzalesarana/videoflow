@@ -11,10 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Menu, LogOut, User, Bell, ChevronDown, Video } from 'lucide-react'
+import { Menu, LogOut, User, ChevronDown, Video } from 'lucide-react'
 import { Sidebar } from './sidebar'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { NotificationPanel } from '@/components/notifications/notification-panel'
 
 export function Navbar() {
   const { user, logout, currentView, sidebarOpen, setSidebarOpen, toggleSidebar } = useAppStore()
@@ -40,7 +41,6 @@ export function Navbar() {
       <div className="flex items-center justify-between h-16 px-4 md:px-6">
         {/* Left section */}
         <div className="flex items-center gap-3">
-          {/* Mobile menu button */}
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetTrigger className="inline-flex items-center justify-center rounded-md size-9 hover:bg-accent hover:text-accent-foreground md:hidden">
               <Menu className="h-5 w-5" />
@@ -50,7 +50,6 @@ export function Navbar() {
             </SheetContent>
           </Sheet>
 
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center">
               <Video className="h-4 w-4 text-white" />
@@ -64,9 +63,7 @@ export function Navbar() {
         {/* Right section */}
         <div className="flex items-center gap-2">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-4 w-4" />
-          </Button>
+          <NotificationPanel />
 
           {/* User menu */}
           <DropdownMenu>
