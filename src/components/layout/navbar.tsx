@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ export function Navbar() {
       const supabase = createClient()
       await supabase.auth.signOut()
       logout()
-      toast.success('Sesión cerrada correctamente')
+      toast.success('Sesion cerrada correctamente')
     } catch (error) {
       console.error('Logout error:', error)
       logout()
@@ -42,10 +42,8 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           {/* Mobile menu button */}
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
+            <SheetTrigger className="inline-flex items-center justify-center rounded-md size-9 hover:bg-accent hover:text-accent-foreground md:hidden">
+              <Menu className="h-5 w-5" />
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72 glass-strong">
               <Sidebar />
@@ -91,7 +89,7 @@ export function Navbar() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-400 focus:text-red-400">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Cerrar Sesión</span>
+                <span>Cerrar Sesion</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
