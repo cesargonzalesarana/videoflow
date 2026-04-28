@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useAppStore } from '@/lib/store'
 import { LandingPage } from '@/components/landing/landing-page'
 import { Navbar } from '@/components/layout/navbar'
@@ -25,10 +26,18 @@ export default function Home() {
     async function checkSession() {
       try {
         setAuthLoading(true)
-        const res = await fetch('/api/auth', { method: 'GET' })
-        const data = await res.json()
-        if (data.authenticated && data.user) {
-          login(data.user)
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          const user = session.user
+          login({
+            id: user.id,
+            email: user.email!,
+            name: user.user_metadata?.name || user.email!
+          })
+          // Sync user profile to database in background
+          fetch('/api/auth').catch(() => {})
         }
       } catch (error) {
         console.error('Session check failed:', error)

@@ -29,32 +29,36 @@ export function AuthForm() {
       const supabase = createClient()
 
       if (isRegister) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { name } }
         })
         if (error) { toast.error(error.message || 'Error en el registro'); return }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) { toast.error(error.message || 'Error en la autenticacion'); return }
-      }
 
-      // Get user data from API (cookies are now set by client-side Supabase)
-      const res = await fetch('/api/auth')
-      const data = await res.json()
-
-      if (res.ok && data.user) {
-        login(data.user)
-        toast.success(`¡Bienvenido${isRegister ? '' : ' de nuevo'}, ${data.user.name}!`)
-      } else {
-        // Fallback: use Supabase user directly
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          login({ id: user.id, email: user.email!, name: user.user_metadata?.name || user.email! })
-          toast.success('¡Bienvenido!')
+        if (data.session) {
+          const user = data.user!
+          login({ id: user.id, email: user.email!, name: name })
+          toast.success('¡Bienvenido, ' + name + '!')
+        } else {
+          toast.success('¡Registro exitoso! Revisa tu email para confirmar tu cuenta.')
+          return
         }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) { toast.error(error.message || 'Credenciales invalidas'); return }
+
+        const user = data.user!
+        login({
+          id: user.id,
+          email: user.email!,
+          name: user.user_metadata?.name || user.email!
+        })
+        toast.success('¡Bienvenido de nuevo, ' + (user.user_metadata?.name || user.email) + '!')
       }
+
+      // Sync user profile to database in background
+      fetch('/api/auth').catch(() => {})
     } catch {
       toast.error('Error de conexion. Intenta de nuevo.')
     } finally {
