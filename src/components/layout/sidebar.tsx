@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore, type SidebarSection } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame, LayoutTemplate } from 'lucide-react'
+import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame, LayoutTemplate, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -19,6 +19,7 @@ const sidebarItems: SidebarItem[] = [
   { id: 'video-creator', label: 'Crear Video', icon: <Video className="h-5 w-5" /> },
   { id: 'scheduler', label: 'Programar', icon: <Calendar className="h-5 w-5" /> },
   { id: 'ai-trends', label: 'IA Trends', icon: <Flame className="h-5 w-5" /> },
+  { id: 'media', label: 'Biblioteca', icon: <FolderOpen className="h-5 w-5" /> },
   { id: 'templates', label: 'Plantillas', icon: <LayoutTemplate className="h-5 w-5" /> },
   { id: 'settings', label: 'ConfiguraciÃ³n', icon: <Settings className="h-5 w-5" /> },
 ]

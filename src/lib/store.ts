@@ -9,6 +9,8 @@ export type AppView =
   | 'ai-trends'
   | 'settings'
   | 'templates'
+  | 'media'
+  | 'media'
 
 export type SidebarSection =
   | 'dashboard'
@@ -18,6 +20,8 @@ export type SidebarSection =
   | 'ai-trends'
   | 'settings'
   | 'templates'
+  | 'media'
+  | 'media'
 
 export interface User {
   id: string
