@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Video, Calendar, Sparkles, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 
 export function AuthForm() {
   const [isRegister, setIsRegister] = useState(false)
@@ -18,8 +19,6 @@ export function AuthForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [showForgot, setShowForgot] = useState(false)
-  const [forgotEmail, setForgotEmail] = useState('')
   const { login } = useAppStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,38 +38,36 @@ export function AuthForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || 'Error en la autenticación')
+        toast.error(data.error || 'Error en la autenticacion')
         return
       }
 
       login(data.user)
       toast.success(`¡Bienvenido${isRegister ? '' : ' de nuevo'}, ${data.user.name}!`)
     } catch {
-      toast.error('Error de conexión. Intenta de nuevo.')
+      toast.error('Error de conexion. Intenta de nuevo.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleForgotPassword = async function() {
-    if (!forgotEmail) {
-      toast.error('Ingresa tu email')
-      return
-    }
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail }),
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
       })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error || 'Error al enviar enlace'); return }
-      toast.success('Se envio el enlace de recuperacion a tu email')
-      setShowForgot(false)
+
+      if (error) {
+        toast.error(error.message || `Error al conectar con ${provider === 'google' ? 'Google' : 'GitHub'}`)
+        setIsLoading(false)
+      }
     } catch {
-      toast.error('Error de conexion')
-    } finally {
+      toast.error('Error de conexion. Intenta de nuevo.')
       setIsLoading(false)
     }
   }
@@ -81,7 +78,6 @@ export function AuthForm() {
       <div className="flex-1 flex flex-col lg:flex-row">
         {/* Left - Hero */}
         <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-16 relative overflow-hidden">
-          {/* Background gradient blobs */}
           <div className="absolute top-1/4 -left-32 w-64 h-64 bg-purple-500/20 rounded-full blur-[100px]" />
           <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-fuchsia-500/20 rounded-full blur-[100px]" />
 
@@ -91,7 +87,6 @@ export function AuthForm() {
             transition={{ duration: 0.6 }}
             className="relative z-10 max-w-lg"
           >
-            {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
                 <Video className="h-6 w-6 text-white" />
@@ -103,10 +98,10 @@ export function AuthForm() {
 
             <h2 className="text-2xl md:text-4xl font-bold mb-4 leading-tight">
               Crea videos profesionales y{' '}
-              <span className="gradient-text">programa su publicación</span>
+              <span className="gradient-text">programa su publicacion</span>
             </h2>
             <p className="text-muted-foreground text-lg mb-8">
-              Todo gratis, desde tu navegador. Impulsa tu contenido con IA y alcanza más público.
+              Todo gratis, desde tu navegador. Impulsa tu contenido con IA y alcanza mas publico.
             </p>
 
             <div className="flex items-center gap-4">
@@ -116,7 +111,6 @@ export function AuthForm() {
               </Button>
             </div>
 
-            {/* Stats */}
             <div className="flex items-center gap-8 mt-12">
               <div>
                 <p className="text-2xl font-bold gradient-text">10K+</p>
@@ -130,7 +124,7 @@ export function AuthForm() {
               <div className="w-px h-10 bg-border" />
               <div>
                 <p className="text-2xl font-bold gradient-text">4.9★</p>
-                <p className="text-sm text-muted-foreground">Valoración</p>
+                <p className="text-sm text-muted-foreground">Valoracion</p>
               </div>
             </div>
           </motion.div>
@@ -152,7 +146,7 @@ export function AuthForm() {
                     value="login"
                     className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-fuchsia-600 data-[state=active]:text-white data-[state=active]:shadow-md"
                   >
-                    Iniciar Sesión
+                    Iniciar Sesion
                   </TabsTrigger>
                   <TabsTrigger
                     value="register"
@@ -177,9 +171,50 @@ export function AuthForm() {
                         </CardTitle>
                         <CardDescription className="mt-1">
                           {isRegister
-                            ? 'Empieza a crear contenido increíble'
-                            : 'Inicia sesión para continuar'}
+                            ? 'Empieza a crear contenido increible'
+                            : 'Inicia sesion para continuar'}
                         </CardDescription>
+                      </div>
+
+                      {/* OAuth Buttons */}
+                      <div className="space-y-3 mb-6">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full h-11 bg-background/50 border-border/50 hover:bg-muted/50 justify-center"
+                          onClick={() => handleOAuthLogin('google')}
+                          disabled={isLoading}
+                        >
+                          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                          </svg>
+                          Continuar con Google
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full h-11 bg-background/50 border-border/50 hover:bg-muted/50 justify-center"
+                          onClick={() => handleOAuthLogin('github')}
+                          disabled={isLoading}
+                        >
+                          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                          </svg>
+                          Continuar con GitHub
+                        </Button>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-border/50" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-card px-2 text-muted-foreground">O usa tu email</span>
+                        </div>
                       </div>
 
                       <form onSubmit={handleSubmit} className="space-y-4">
@@ -220,12 +255,12 @@ export function AuthForm() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="password">Contraseña</Label>
+                          <Label htmlFor="password">Contrasena</Label>
                           <div className="relative">
                             <Input
                               id="password"
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="••••••••"
+                              placeholder="--------"
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
                               required
@@ -251,18 +286,14 @@ export function AuthForm() {
                           {isLoading ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           ) : null}
-                          {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+                          {isRegister ? 'Crear Cuenta' : 'Iniciar Sesion'}
                         </Button>
                       </form>
-
-                        {!isRegister && !showForgot && (
-                          <button type='button' onClick={function() { setShowForgot(true) }} className='w-full text-center text-sm text-purple-400 hover:text-purple-300 mt-2 transition-colors'>Olvidaste tu contrasena?</button>
-                        )}
 
                       {!isRegister && (
                         <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/30">
                           <p className="text-xs text-muted-foreground text-center">
-                            Demo: Usa cualquier email y contraseña (mínimo 6 caracteres)
+                            Demo: Usa cualquier email y contrasena (minimo 6 caracteres)
                           </p>
                         </div>
                       )}
@@ -294,7 +325,7 @@ export function AuthForm() {
               },
               {
                 icon: <Calendar className="h-6 w-6" />,
-                title: 'Programar Publicación',
+                title: 'Programar Publicacion',
                 description: ' Programa videos en YouTube, TikTok, Instagram y Facebook desde un solo lugar.',
                 gradient: 'from-fuchsia-500/20 to-fuchsia-500/5',
                 iconBg: 'bg-fuchsia-500/10 text-fuchsia-400',
@@ -328,10 +359,9 @@ export function AuthForm() {
         </div>
       </div>
 
-      {/* Footer */}
       <footer className="border-t border-border/30 px-6 py-6 text-center">
         <p className="text-sm text-muted-foreground">
-          © 2025 VideoFlow. Creado con 💜 para creadores de contenido.
+          © 2025 VideoFlow. Creado con amor para creadores de contenido.
         </p>
       </footer>
     </div>
