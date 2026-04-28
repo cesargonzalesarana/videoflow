@@ -15,6 +15,7 @@ import { SettingsPanel } from '@/components/settings/settings-panel'
 import { ProjectList } from '@/components/projects/project-list'
 import { TemplateGallery } from '@/components/templates/template-gallery'
 import { MediaLibrary } from '@/components/media/media-library'
+import { OnboardingWrapper } from '@/components/onboarding/onboarding-wrapper'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export default function Home() {
@@ -59,6 +60,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex">
+      <OnboardingWrapper />
       <aside className="hidden md:flex w-64 flex-col border-r border-border/50 glass-strong">
         <Sidebar />
       </aside>
