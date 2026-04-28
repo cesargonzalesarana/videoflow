@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+﻿import { create } from 'zustand'
 
 export type AppView =
   | 'landing'
@@ -8,6 +8,7 @@ export type AppView =
   | 'scheduler'
   | 'ai-trends'
   | 'settings'
+  | 'templates'
 
 export type SidebarSection =
   | 'dashboard'
@@ -16,6 +17,7 @@ export type SidebarSection =
   | 'scheduler'
   | 'ai-trends'
   | 'settings'
+  | 'templates'
 
 export interface User {
   id: string

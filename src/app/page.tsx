@@ -1,8 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
-import { AuthForm } from '@/components/auth/auth-form'
 import { LandingPage } from '@/components/landing/landing-page'
 import { Navbar } from '@/components/layout/navbar'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -14,6 +13,7 @@ import { TrendsFeed } from '@/components/ai/trends-feed'
 import { ScriptGenerator } from '@/components/ai/script-generator'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { ProjectList } from '@/components/projects/project-list'
+import { TemplateGallery } from '@/components/templates/template-gallery'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export default function Home() {
@@ -35,7 +35,7 @@ export default function Home() {
       }
     }
     checkSession()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   if (isAuthenticated === false && useAppStore.getState().isAuthLoading) {
     return (
@@ -74,6 +74,7 @@ export default function Home() {
             >
               {currentView === 'dashboard' && <Dashboard />}
               {currentView === 'projects' && <ProjectList />}
+              {currentView === 'templates' && <TemplateGallery />}
               {currentView === 'video-creator' && <div className="-m-4 md:-m-6 h-[calc(100vh-64px)]"><VideoCreator /></div>}
               {currentView === 'scheduler' && (
                 <div className="space-y-6">

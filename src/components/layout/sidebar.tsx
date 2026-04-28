@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { useAppStore, type SidebarSection } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame } from 'lucide-react'
+import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -19,7 +19,8 @@ const sidebarItems: SidebarItem[] = [
   { id: 'video-creator', label: 'Crear Video', icon: <Video className="h-5 w-5" /> },
   { id: 'scheduler', label: 'Programar', icon: <Calendar className="h-5 w-5" /> },
   { id: 'ai-trends', label: 'IA Trends', icon: <Flame className="h-5 w-5" /> },
-  { id: 'settings', label: 'Configuración', icon: <Settings className="h-5 w-5" /> },
+  { id: 'templates', label: 'Plantillas', icon: <LayoutTemplate className="h-5 w-5" /> },
+  { id: 'settings', label: 'ConfiguraciÃ³n', icon: <Settings className="h-5 w-5" /> },
 ]
 
 export function Sidebar() {
@@ -107,7 +108,7 @@ export function Sidebar() {
         {/* Quick stats */}
         <div className="px-3 py-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Resumen Rápido
+            Resumen RÃ¡pido
           </p>
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
@@ -134,7 +135,7 @@ export function Sidebar() {
             <span className="text-xs font-semibold">Plan Pro</span>
           </div>
           <p className="text-xs text-muted-foreground mb-2">
-            Desbloquea IA avanzada y exportación 4K
+            Desbloquea IA avanzada y exportaciÃ³n 4K
           </p>
           <Button size="sm" className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-xs h-8">
             Actualizar
