@@ -26,24 +26,35 @@ export function AuthForm() {
     setIsLoading(true)
 
     try {
-      const action = isRegister ? 'register' : 'login'
-      const body = isRegister ? { action, name, email, password } : { action, email, password }
+      const supabase = createClient()
 
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        toast.error(data.error || 'Error en la autenticacion')
-        return
+      if (isRegister) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } }
+        })
+        if (error) { toast.error(error.message || 'Error en el registro'); return }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) { toast.error(error.message || 'Error en la autenticacion'); return }
       }
 
-      login(data.user)
-      toast.success(`¡Bienvenido${isRegister ? '' : ' de nuevo'}, ${data.user.name}!`)
+      // Get user data from API (cookies are now set by client-side Supabase)
+      const res = await fetch('/api/auth')
+      const data = await res.json()
+
+      if (res.ok && data.user) {
+        login(data.user)
+        toast.success(`¡Bienvenido${isRegister ? '' : ' de nuevo'}, ${data.user.name}!`)
+      } else {
+        // Fallback: use Supabase user directly
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          login({ id: user.id, email: user.email!, name: user.user_metadata?.name || user.email! })
+          toast.success('¡Bienvenido!')
+        }
+      }
     } catch {
       toast.error('Error de conexion. Intenta de nuevo.')
     } finally {
