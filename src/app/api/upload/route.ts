@@ -1,8 +1,13 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  const { success } = rateLimit(ip, 5, 60000)
+  if (!success) { return NextResponse.json({ error: 'Demasiadas subidas. Intenta en un minuto.' }, { status: 429 }) }
+
   try {
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()

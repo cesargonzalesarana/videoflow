@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 
 export async function GET() {
+  // Rate limit for session checks is more permissive
+
   try {
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
@@ -37,6 +40,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  const { success, remaining } = rateLimit(ip, 10, 60000)
+  if (!success) { return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en un minuto.' }, { status: 429 }) }
+
   try {
     const body = await request.json()
     const { action, name, email, password } = body
@@ -50,7 +57,7 @@ export async function POST(request: NextRequest) {
       }
       if (password.length < 6) {
         return NextResponse.json(
-          { error: 'La contraseña debe tener al menos 6 caracteres' },
+          { error: 'La contraseÃ±a debe tener al menos 6 caracteres' },
           { status: 400 }
         )
       }
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
         console.error('Supabase auth error:', authError.message)
         return NextResponse.json(
           { error: authError.message === 'User already registered'
-            ? 'Este email ya está registrado'
+            ? 'Este email ya estÃ¡ registrado'
             : authError.message },
           { status: 409 }
         )
@@ -109,7 +116,7 @@ export async function POST(request: NextRequest) {
     if (action === 'login') {
       if (!email || !password) {
         return NextResponse.json(
-          { error: 'Email y contraseña son requeridos' },
+          { error: 'Email y contraseÃ±a son requeridos' },
           { status: 400 }
         )
       }
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest) {
       if (authError) {
         console.error('Supabase login error:', authError.message)
         return NextResponse.json(
-          { error: 'Credenciales inválidas' },
+          { error: 'Credenciales invÃ¡lidas' },
           { status: 401 }
         )
       }
@@ -132,7 +139,7 @@ export async function POST(request: NextRequest) {
       const userId = authData.user?.id
       if (!userId) {
         return NextResponse.json(
-          { error: 'Error al iniciar sesión' },
+          { error: 'Error al iniciar sesiÃ³n' },
           { status: 500 }
         )
       }
@@ -183,7 +190,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 })
+    return NextResponse.json({ error: 'AcciÃ³n no vÃ¡lida' }, { status: 400 })
   } catch (error) {
     console.error('Auth error:', error)
     return NextResponse.json(
