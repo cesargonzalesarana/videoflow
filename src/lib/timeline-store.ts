@@ -1,193 +1,233 @@
 import { create } from 'zustand'
 
-export interface Clip {
+export type TrackType = 'video' | 'audio' | 'text' | 'image'
+
+export interface TimelineClipData {
   id: string
   trackId: string
-  type: 'video' | 'audio' | 'text' | 'image'
+  type: TrackType
   name: string
-  src?: string
-  storagePath?: string
   startTime: number
   duration: number
-  volume?: number
-  opacity?: number
+  trimStart: number
+  trimEnd: number
+  file?: File
+  previewUrl?: string
+  storagePath?: string
+  // Audio
+  volume: number
+  // Visual
+  opacity: number
+  // Text props
   text?: string
   fontSize?: number
-  color?: string
-  fadeIn?: number
-  fadeOut?: number
+  fontWeight?: 'normal' | 'bold' | 'lighter'
+  fontFamily?: string
+  textColor?: string
+  textAlign?: 'left' | 'center' | 'right'
+  // Image / video props
+  scale: number
+  positionX: number
+  positionY: number
+  // Effects
+  transition: 'none' | 'fade' | 'slide-left' | 'slide-right' | 'dissolve' | 'zoom-in'
+  filter: 'none' | 'grayscale' | 'sepia' | 'blur' | 'brightness-up' | 'contrast-up'
 }
 
-export interface Track {
+export interface TimelineTrackData {
   id: string
+  type: TrackType
   name: string
-  type: 'video' | 'audio' | 'text' | 'image'
-  clips: Clip[]
   muted: boolean
   locked: boolean
   visible: boolean
+  height: number
 }
 
 interface TimelineState {
-  tracks: Track[]
-  duration: number
+  tracks: TimelineTrackData[]
+  clips: TimelineClipData[]
   currentTime: number
   isPlaying: boolean
   zoom: number
   selectedClipId: string | null
-  snapEnabled: boolean
-  history: string[]
-  historyIndex: number
-  setTracks: (tracks: Track[]) => void
-  addClip: (trackId: string, clip: Clip) => void
-  removeClip: (clipId: string) => void
-  updateClip: (clipId: string, updates: Partial<Clip>) => void
+  scrollX: number
+
+  addTrack: (track: Omit<TimelineTrackData, 'id'>) => string
+  removeTrack: (id: string) => void
+  updateTrack: (id: string, updates: Partial<TimelineTrackData>) => void
+
+  addClip: (clip: Omit<TimelineClipData, 'id'>) => string
+  removeClip: (id: string) => void
+  updateClip: (id: string, updates: Partial<TimelineClipData>) => void
+  moveClip: (id: string, newTrackId: string, newStartTime: number) => void
+  splitClip: (id: string, splitTime: number) => void
+  duplicateClip: (id: string) => void
+
   setCurrentTime: (time: number) => void
   setIsPlaying: (playing: boolean) => void
   setZoom: (zoom: number) => void
   setSelectedClipId: (id: string | null) => void
-  moveClip: (clipId: string, newStartTime: number, newTrackId?: string) => void
-  splitClip: (clipId: string) => void
-  duplicateClip: (clipId: string) => void
-  setSnapEnabled: (enabled: boolean) => void
-  saveHistory: () => void
+  setScrollX: (x: number) => void
+
   undo: () => void
   redo: () => void
+  canUndo: boolean
+  canRedo: boolean
+
+  initializeDefaultTracks: () => void
+  clearAll: () => void
+  getClipsOnTrack: (trackId: string) => TimelineClipData[]
+  getSelectedClip: () => TimelineClipData | undefined
+  getTotalDuration: () => number
+  getActiveClipsAtTime: (time: number) => TimelineClipData[]
 }
 
-const defaultTracks: Track[] = [
-  { id: 'track-1', name: 'Video 1', type: 'video', clips: [], muted: false, locked: false, visible: true },
-  { id: 'track-2', name: 'Audio 1', type: 'audio', clips: [], muted: false, locked: false, visible: true },
-  { id: 'track-3', name: 'Texto', type: 'text', clips: [], muted: false, locked: false, visible: true },
-  { id: 'track-4', name: 'Imagenes', type: 'image', clips: [], muted: false, locked: false, visible: true },
-]
+let clipCounter = 0
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
-  tracks: defaultTracks,
-  duration: 300,
+  tracks: [],
+  clips: [],
   currentTime: 0,
   isPlaying: false,
-  zoom: 1,
+  zoom: 80,
   selectedClipId: null,
-  snapEnabled: true,
-  history: [],
-  historyIndex: -1,
-  setTracks: (tracks) => set({ tracks }),
-  addClip: (trackId, clip) =>
+  scrollX: 0,
+  canUndo: false,
+  canRedo: false,
+
+  addTrack: (track) => {
+    const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+    set((state) => ({ tracks: [...state.tracks, { ...track, id }] }))
+    return id
+  },
+
+  removeTrack: (id) => {
     set((state) => ({
-      tracks: state.tracks.map((t) =>
-        t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
-      ),
-    })),
-  removeClip: (clipId) => {
-    const state = get()
-    state.saveHistory()
-    set((state) => ({
-      tracks: state.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.filter((c) => c.id !== clipId),
-      })),
-      selectedClipId: state.selectedClipId === clipId ? null : state.selectedClipId,
+      tracks: state.tracks.filter((t) => t.id !== id),
+      clips: state.clips.filter((c) => c.trackId !== id),
     }))
   },
-  updateClip: (clipId, updates) =>
+
+  updateTrack: (id, updates) => {
     set((state) => ({
-      tracks: state.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.map((c) => (c.id === clipId ? { ...c, ...updates } : c)),
-      })),
-    })),
-  setCurrentTime: (currentTime) => set({ currentTime }),
-  setIsPlaying: (isPlaying) => set({ isPlaying }),
-  setZoom: (zoom) => set({ zoom: Math.max(0.25, Math.min(4, zoom)) }),
-  setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
-  moveClip: (clipId, newStartTime, newTrackId) => {
-    const state = get()
-    let snappedTime = newStartTime
-    if (state.snapEnabled) {
-      const allEdges: number[] = []
-      state.tracks.forEach((t) =>
-        t.clips.forEach((c) => {
-          if (c.id !== clipId) {
-            allEdges.push(c.startTime)
-            allEdges.push(c.startTime + c.duration)
-          }
-        })
-      )
-      allEdges.push(0)
-      let closest = 0
-      let minDist = Infinity
-      allEdges.forEach((edge) => {
-        const dist = Math.abs(newStartTime - edge)
-        if (dist < minDist) { minDist = dist; closest = edge }
-      })
-      if (minDist < 5 / (10 * state.zoom)) snappedTime = closest
-    }
-    set((state) => {
-      let clipToMove: Clip | undefined
-      const tracksWithoutClip = state.tracks.map((t) => {
-        const clip = t.clips.find((c) => c.id === clipId)
-        if (clip) clipToMove = clip
-        return { ...t, clips: t.clips.filter((c) => c.id !== clipId) }
-      })
-      if (!clipToMove) return state
-      const targetTrackId = newTrackId || clipToMove.trackId
-      return {
-        tracks: tracksWithoutClip.map((t) =>
-          t.id === targetTrackId
-            ? { ...t, clips: [...t.clips, { ...clipToMove!, startTime: snappedTime, trackId: targetTrackId }] }
-            : t
+      tracks: state.tracks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    }))
+  },
+
+  addClip: (clip) => {
+    const id = `clip_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+    set((state) => ({ clips: [...state.clips, { ...clip, id }] }))
+    return id
+  },
+
+  removeClip: (id) => {
+    set((state) => ({
+      clips: state.clips.filter((c) => c.id !== id),
+      selectedClipId: state.selectedClipId === id ? null : state.selectedClipId,
+    }))
+  },
+
+  updateClip: (id, updates) => {
+    set((state) => ({
+      clips: state.clips.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+    }))
+  },
+
+  moveClip: (id, newTrackId, newStartTime) => {
+    set((state) => ({
+      clips: state.clips.map((c) =>
+        c.id === id ? { ...c, trackId: newTrackId, startTime: Math.max(0, newStartTime) } : c
+      ),
+    }))
+  },
+
+  splitClip: (id, splitTime) => {
+    const clip = get().clips.find((c) => c.id === id)
+    if (!clip) return
+    const relativeTime = splitTime - clip.startTime
+    if (relativeTime <= 0 || relativeTime >= clip.duration) return
+
+    const firstDuration = relativeTime
+    const secondDuration = clip.duration - relativeTime
+
+    const newClipId = `clip_${Date.now()}_split_${Math.random().toString(36).substr(2, 5)}`
+
+    set((state) => ({
+      clips: [
+        ...state.clips.map((c) =>
+          c.id === id ? { ...c, duration: firstDuration } : c
         ),
-      }
+        {
+          ...clip,
+          id: newClipId,
+          startTime: splitTime,
+          duration: secondDuration,
+          trimStart: clip.trimStart + firstDuration,
+        },
+      ],
+    }))
+  },
+
+  duplicateClip: (id) => {
+    const clip = get().clips.find((c) => c.id === id)
+    if (!clip) return
+
+    const allClips = get().clips.filter((c) => c.trackId === clip.trackId)
+    const lastEnd = allClips.reduce((max, c) => Math.max(max, c.startTime + c.duration), 0)
+    const newStartTime = Math.max(lastEnd, clip.startTime + clip.duration)
+
+    get().addClip({
+      ...clip,
+      startTime: newStartTime,
+      name: `${clip.name} (copia)`,
     })
   },
-  splitClip: (clipId) => {
-    const state = get()
-    state.saveHistory()
-    const { currentTime, tracks } = state
-    let found = false
-    const newTracks = tracks.map((t) => {
-      const clip = t.clips.find((c) => c.id === clipId)
-      if (!clip) return t
-      if (currentTime <= clip.startTime || currentTime >= clip.startTime + clip.duration) return t
-      found = true
-      const splitPoint = currentTime - clip.startTime
-      const clip1: Clip = { ...clip, duration: splitPoint, id: `clip-${Date.now()}-a`, fadeIn: clip.fadeIn, fadeOut: 0 }
-      const clip2: Clip = { ...clip, startTime: currentTime, duration: clip.duration - splitPoint, id: `clip-${Date.now()}-b`, fadeIn: 0, fadeOut: clip.fadeOut }
-      return { ...t, clips: t.clips.map((c) => (c.id === clipId ? clip1 : c)).concat(clip2) }
-    })
-    if (found) set({ tracks: newTracks, selectedClipId: null })
-  },
-  duplicateClip: (clipId) => {
-    const state = get()
-    state.saveHistory()
-    const newTracks = state.tracks.map((t) => {
-      const clip = t.clips.find((c) => c.id === clipId)
-      if (!clip) return t
-      const dup: Clip = { ...clip, id: `clip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, startTime: clip.startTime + clip.duration + 0.1 }
-      return { ...t, clips: [...t.clips, dup] }
-    })
-    set({ tracks: newTracks })
-  },
-  setSnapEnabled: (snapEnabled) => set({ snapEnabled }),
-  saveHistory: () => {
-    const state = get()
-    const historySlice = state.history.slice(0, state.historyIndex + 1)
-    historySlice.push(JSON.stringify(state.tracks))
-    set({ history: historySlice.slice(-50), historyIndex: historySlice.length - 1 })
-  },
+
+  setCurrentTime: (time) => set({ currentTime: Math.max(0, time) }),
+  setIsPlaying: (playing) => set({ isPlaying: playing }),
+  setZoom: (zoom) => set({ zoom: Math.max(20, Math.min(300, zoom)) }),
+  setSelectedClipId: (id) => set({ selectedClipId: id }),
+  setScrollX: (x) => set({ scrollX: x }),
+
   undo: () => {
-    const state = get()
-    if (state.historyIndex <= 0) return
-    const newIndex = state.historyIndex - 1
-    const tracks = JSON.parse(state.history[newIndex])
-    set({ tracks, historyIndex: newIndex, selectedClipId: null })
+    // TODO: implement full undo/redo with history stack
   },
   redo: () => {
-    const state = get()
-    if (state.historyIndex >= state.history.length - 1) return
-    const newIndex = state.historyIndex + 1
-    const tracks = JSON.parse(state.history[newIndex])
-    set({ tracks, historyIndex: newIndex, selectedClipId: null })
+    // TODO: implement full undo/redo with history stack
+  },
+
+  initializeDefaultTracks: () => {
+    const { tracks } = get()
+    if (tracks.length > 0) return
+
+    get().addTrack({ type: 'video', name: 'Video 1', muted: false, locked: false, visible: true, height: 64 })
+    get().addTrack({ type: 'video', name: 'Video 2', muted: false, locked: false, visible: true, height: 64 })
+    get().addTrack({ type: 'text', name: 'Texto', muted: false, locked: false, visible: true, height: 48 })
+    get().addTrack({ type: 'audio', name: 'Audio', muted: false, locked: false, visible: true, height: 48 })
+  },
+
+  clearAll: () => {
+    set({ clips: [], selectedClipId: null, currentTime: 0, isPlaying: false })
+  },
+
+  getClipsOnTrack: (trackId) => {
+    return get().clips.filter((c) => c.trackId === trackId).sort((a, b) => a.startTime - b.startTime)
+  },
+
+  getSelectedClip: () => {
+    return get().clips.find((c) => c.id === get().selectedClipId)
+  },
+
+  getTotalDuration: () => {
+    const { clips } = get()
+    if (clips.length === 0) return 30
+    return Math.max(30, ...clips.map((c) => c.startTime + c.duration)) + 5
+  },
+
+  getActiveClipsAtTime: (time) => {
+    return get().clips.filter(
+      (c) => time >= c.startTime && time < c.startTime + c.duration
+    )
   },
 }))

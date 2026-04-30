@@ -1,230 +1,361 @@
 'use client'
 
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { TimelineRuler } from './TimelineRuler'
 import { TimelineTrack } from './TimelineTrack'
 import { Playhead } from './Playhead'
-import { MediaPanel } from './MediaPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
-import { ToolBar } from './ToolBar'
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { ToolSidebar, ToolType } from './ToolSidebar'
+import { ToolPanel } from './ToolPanel'
+import { Button } from '@/components/ui/button'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
-import { ExportPanel } from './ExportPanel'
-import { useAutoSave } from '@/hooks/use-auto-save'
+import {
+  ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
+  ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
+  Plus, Volume2, VolumeX, Undo2, Redo2, Save, LayoutGrid,
+  Settings, ChevronDown
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { exportWithAudio } from './exportWithAudio'
 
 export function TimelineEditor() {
   const {
-    tracks, currentTime, isPlaying, zoom, selectedClipId, snapEnabled,
-    setCurrentTime, setIsPlaying, setZoom, setSelectedClipId,
-    removeClip, splitClip, duplicateClip, setSnapEnabled, undo, redo
+    tracks, clips, currentTime, isPlaying, zoom,
+    setIsPlaying, setCurrentTime, setZoom, initializeDefaultTracks,
+    clearAll, scrollX, setScrollX, getTotalDuration,
+    addTrack, undo, redo, canUndo, canRedo
   } = useTimelineStore()
-  const { setView, currentProjectName, saveStatus } = useAppStore()
-  const timelineRef = useRef<HTMLDivElement>(null)
-  const animRef = useRef<number>(0)
-  const lastTimeRef = useRef<number>(0)
-  const currentTimeRef = useRef<number>(0)
-  const [showExport, setShowExport] = useState(false)
-  const [activeTool, setActiveTool] = useState('media')
-  const [showProperties, setShowProperties] = useState(false)
 
-  useAutoSave()
+  const { isProcessing, setProcessing, setProcessingProgress, processingProgress } = useAppStore()
+  const timelineContentRef = useRef<HTMLDivElement>(null)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+  const [activeTool, setActiveTool] = useState<ToolType>('media')
+  const [showProjectMenu, setShowProjectMenu] = useState(false)
+
+  const totalDuration = useTimelineStore(getTotalDuration)
 
   useEffect(() => {
-    currentTimeRef.current = currentTime
-  }, [currentTime])
-
-  const handleKeydown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    switch (e.code) {
-      case 'Space':
-        e.preventDefault()
-        setIsPlaying(!isPlaying)
-        break
-      case 'Delete':
-      case 'Backspace':
-        if (selectedClipId) removeClip(selectedClipId)
-        break
-      case 'KeyS':
-        if (!e.ctrlKey && !e.metaKey && selectedClipId) {
-          e.preventDefault()
-          splitClip(selectedClipId)
-        }
-        break
-      case 'KeyD':
-        if ((e.ctrlKey || e.metaKey) && selectedClipId) {
-          e.preventDefault()
-          duplicateClip(selectedClipId)
-        }
-        break
-      case 'KeyZ':
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-          e.preventDefault()
-          undo()
-        }
-        break
-      case 'KeyY':
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault()
-          redo()
-        }
-        break
-      case 'ArrowLeft':
-        e.preventDefault()
-        setCurrentTime(Math.max(0, currentTime - (e.shiftKey ? 1 : 1 / 30)))
-        break
-      case 'ArrowRight':
-        e.preventDefault()
-        setCurrentTime(Math.min(300, currentTime + (e.shiftKey ? 1 : 1 / 30)))
-        break
-    }
-  }, [isPlaying, selectedClipId, currentTime, setIsPlaying, removeClip, splitClip, duplicateClip, undo, redo, setCurrentTime])
+    initializeDefaultTracks()
+  }, [initializeDefaultTracks])
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeydown)
-    return () => window.removeEventListener('keydown', handleKeydown)
-  }, [handleKeydown])
-
-  useEffect(() => {
-    if (!isPlaying) {
-      if (animRef.current) cancelAnimationFrame(animRef.current)
-      return
-    }
-    lastTimeRef.current = performance.now()
-    const animate = (now: number) => {
-      const delta = (now - lastTimeRef.current) / 1000
-      lastTimeRef.current = now
-      const newTime = Math.min(currentTimeRef.current + delta, 300)
-      currentTimeRef.current = newTime
-      setCurrentTime(newTime)
-      if (newTime >= 300) {
-        setIsPlaying(false)
-        return
+    let animFrame: number
+    let lastTime = performance.now()
+    const tick = (now: number) => {
+      const delta = (now - lastTime) / 1000
+      lastTime = now
+      if (isPlaying) {
+        const newTime = currentTime + delta
+        if (newTime >= totalDuration) {
+          setIsPlaying(false)
+          setCurrentTime(0)
+        } else {
+          setCurrentTime(newTime)
+        }
       }
-      animRef.current = requestAnimationFrame(animate)
+      animFrame = requestAnimationFrame(tick)
     }
-    animRef.current = requestAnimationFrame(animate)
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
-  }, [isPlaying, setCurrentTime, setIsPlaying])
+    animFrame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animFrame)
+  }, [isPlaying, currentTime, totalDuration, setIsPlaying, setCurrentTime])
 
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!timelineRef.current || (e.target as HTMLElement).closest('[data-clip]')) return
-    const rect = timelineRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const time = Math.max(0, Math.min(x / (10 * zoom), 300))
-    setCurrentTime(time)
+  useEffect(() => {
+    if (!timelineContentRef.current || !isPlaying) return
+    const playheadX = currentTime * zoom
+    const containerWidth = timelineContentRef.current.clientWidth
+    if (playheadX - scrollX > containerWidth - 100) {
+      setScrollX(playheadX - containerWidth + 200)
+    }
+  }, [currentTime, zoom, isPlaying, scrollX, setScrollX])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault()
+          setIsPlaying(!isPlaying)
+          break
+        case 'Digit1': setActiveTool('media'); break
+        case 'Digit2': setActiveTool('text'); break
+        case 'Digit3': setActiveTool('audio'); break
+        case 'Digit4': setActiveTool('videos'); break
+        case 'Digit5': setActiveTool('images'); break
+        case 'Digit6': setActiveTool('tts'); break
+        case 'Digit7': setActiveTool('record'); break
+        case 'ArrowLeft':
+          e.preventDefault()
+          setCurrentTime(Math.max(0, currentTime - (e.shiftKey ? 1 : 0.1)))
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          setCurrentTime(Math.min(totalDuration, currentTime + (e.shiftKey ? 1 : 0.1)))
+          break
+        case 'Delete':
+        case 'Backspace':
+          if (useTimelineStore.getState().selectedClipId) {
+            e.preventDefault()
+            useTimelineStore.getState().removeClip(useTimelineStore.getState().selectedClipId!)
+            toast.success('Clip eliminado')
+          }
+          break
+        case 'KeyZ':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            if (e.shiftKey) redo()
+            else undo()
+          }
+          break
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isPlaying, currentTime, totalDuration, setIsPlaying, setCurrentTime, undo, redo])
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? -10 : 10
+        setZoom(zoom + delta)
+      }
+    },
+    [zoom, setZoom]
+  )
+
+  const handleExport = async () => {
+    await exportWithAudio(clips, audioEnabled, setProcessing, setProcessingProgress)
   }
 
-  const totalClips = tracks.reduce((sum, t) => sum + t.clips.length, 0)
-
   return (
-    <div className="h-full flex flex-col bg-[#1a1a2e] text-white overflow-hidden">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-[#2a2a4a]">
+    <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
+      {/* ===== TOP BAR ===== */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
+        {/* Left: Logo + Project */}
         <div className="flex items-center gap-3">
-          <button onClick={() => setView('projects')} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            Volver
-          </button>
-          <h1 className="text-lg font-bold text-white">
-            {currentProjectName || 'Proyecto 2026'}
-          </h1>
-          {saveStatus === 'saving' && <span className="text-xs text-yellow-400">Guardando...</span>}
-          {saveStatus === 'saved' && <span className="text-xs text-green-400">Guardado</span>}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Film className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold text-white leading-none">VideoFlow</h1>
+              <p className="text-[9px] text-white/30 leading-none mt-0.5">Editor de Video</p>
+            </div>
+          </div>
+
+          <div className="w-px h-6 bg-white/10" />
+
+          {/* Project name */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProjectMenu(!showProjectMenu)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <span className="text-xs text-white/60">Mi Proyecto</span>
+              <ChevronDown className="h-3 w-3 text-white/30" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowProperties(!showProperties)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showProperties ? 'bg-purple-600 text-white' : 'bg-[#2a2a4a] text-gray-400 hover:text-white'}`}>
-            Propiedades
-          </button>
-          <button onClick={() => setShowExport(true)} className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-sm font-medium flex items-center gap-1.5 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Exportar
-          </button>
-          <ExportPanel isOpen={showExport} onClose={() => setShowExport(false)} />
+
+        {/* Center: Undo/Redo + Actions */}
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 mr-1 bg-white/3 rounded-lg p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/30 hover:text-white/70 hover:bg-white/5 disabled:opacity-20"
+              onClick={() => undo()}
+              disabled={!canUndo}
+              title="Deshacer (Ctrl+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-white/30 hover:text-white/70 hover:bg-white/5 disabled:opacity-20"
+              onClick={() => redo()}
+              disabled={!canRedo}
+              title="Rehacer (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <div className="w-px h-5 bg-white/5" />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className={'h-7 ml-1 text-[11px] flex items-center gap-1.5 ' + (audioEnabled ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20' : 'bg-white/3 text-white/40 hover:bg-white/5 border border-white/5')}
+            onClick={() => setAudioEnabled(!audioEnabled)}
+          >
+            {audioEnabled ? (<><Volume2 className="h-3 w-3" />Audio ON</>) : (<><VolumeX className="h-3 w-3" />Audio OFF</>)}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 ml-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[11px] shadow-lg shadow-blue-500/20 font-medium px-3"
+            onClick={handleExport}
+            disabled={isProcessing || clips.length === 0}
+          >
+            {isProcessing
+              ? (<><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{processingProgress}%</>)
+              : (<><Download className="h-3 w-3 mr-1.5" />Exportar WebM</>)
+            }
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-white/20 hover:text-red-400 hover:bg-red-400/10 ml-0.5"
+            onClick={() => { clearAll(); toast.success('Timeline limpiado') }}
+            disabled={clips.length === 0}
+            title="Limpiar todo"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Vertical Toolbar */}
-        <ToolBar activeTool={activeTool} onToolChange={setActiveTool} />
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* LEFT: Tool Sidebar */}
+        <ToolSidebar activeTool={activeTool} onToolChange={setActiveTool} />
 
-        {/* Center Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Upper: Media + Preview + Properties */}
-          <div className="flex flex-1 min-h-0 overflow-hidden">
-            <MediaPanel />
-            <div className="flex-1 min-h-0">
+        {/* LEFT PANEL: Tool Content */}
+        <div className="w-[220px] flex-shrink-0 border-r border-white/5">
+          <ToolPanel activeTool={activeTool} />
+        </div>
+
+        {/* CENTER: Preview + Timeline */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Preview area */}
+          <div className="flex-1 flex items-center justify-center p-3 min-h-0 bg-[#060612]">
+            <div className="w-full max-w-2xl">
               <PreviewCanvas />
             </div>
-            {showProperties && <PropertiesPanel />}
           </div>
 
-          {/* Lower: Timeline */}
-          <div className="h-[250px] border-t border-[#2a2a4a] bg-[#12122a] flex flex-col overflow-hidden">
-            {/* Playback Controls */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e0e22] border-b border-[#2a2a4a]">
-              <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-8 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Play/Pause (Espacio)">
-                {isPlaying ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-                ) : (
-                  <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                )}
-              </button>
-              <button onClick={() => setCurrentTime(0)} className="w-7 h-7 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Inicio">
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
-              </button>
-              <button onClick={() => setCurrentTime(Math.max(0, currentTime - 5))} className="w-7 h-7 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Retroceder 5s">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" /></svg>
-              </button>
-              <button onClick={() => setCurrentTime(Math.min(300, currentTime + 5))} className="w-7 h-7 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Adelantar 5s">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z" /></svg>
-              </button>
-              <span className="ml-1 text-sm font-mono text-gray-300 min-w-[90px]">
-                {Math.floor(currentTime / 60).toString().padStart(2, '0')}:
-                {Math.floor(currentTime % 60).toString().padStart(2, '0')}.
-                {Math.floor((currentTime % 1) * 30).toString().padStart(2, '0')}
-              </span>
-              <span className="text-gray-600 text-xs">/ 05:00.00</span>
-              <div className="flex-1" />
-              <button onClick={undo} className="w-7 h-7 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Deshacer (Ctrl+Z)">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" /></svg>
-              </button>
-              <button onClick={redo} className="w-7 h-7 rounded-lg bg-[#2a2a4a] hover:bg-[#3a3a5a] flex items-center justify-center transition-colors" title="Rehacer (Ctrl+Y)">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" /></svg>
-              </button>
-              <span className="text-gray-600 mx-1">|</span>
-              <button onClick={() => setSnapEnabled(!snapEnabled)} className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${snapEnabled ? 'bg-purple-600 text-white' : 'bg-[#2a2a4a] text-gray-500'}`}>Snap</button>
-              <span className="text-[10px] text-gray-500">Zoom</span>
-              <input type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-16 accent-purple-500" />
-              <span className="text-[10px] text-gray-400 w-6">{zoom}x</span>
+          {/* Timeline section */}
+          <div className="flex flex-col border-t border-white/5" style={{ height: '250px' }}>
+            {/* Timeline toolbar */}
+            <div className="flex items-center justify-between px-2 py-1 bg-[#0a0a1f] border-b border-white/5 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                {/* Playback controls */}
+                <div className="flex items-center gap-0.5">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(0)} title="Inicio">
+                    <ArrowLeftToLine className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.max(0, currentTime - 1))} title="-1s">
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-400 hover:to-indigo-400 shadow-lg shadow-blue-500/25" onClick={() => setIsPlaying(!isPlaying)} title={isPlaying ? 'Pausar' : 'Reproducir'}>
+                    {isPlaying ? <span className="text-[10px] font-bold">II</span> : <span className="text-[10px] font-bold ml-0.5">&#9654;</span>}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.min(totalDuration, currentTime + 1))} title="+1s">
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(totalDuration)} title="Fin">
+                    <ArrowRightToLine className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                <span className="text-[10px] text-white/40 font-mono ml-1">
+                  {formatTime(currentTime)} / {formatTime(totalDuration)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Zoom */}
+                <div className="flex items-center gap-0.5 bg-white/3 rounded-md px-1 py-0.5">
+                  <Button variant="ghost" size="icon" className="h-5 w-5 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setZoom(zoom - 20)}>
+                    <ZoomOut className="h-2.5 w-2.5" />
+                  </Button>
+                  <span className="text-[9px] text-white/30 font-mono w-7 text-center">{zoom}px</span>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 text-white/30 hover:text-white hover:bg-white/10" onClick={() => setZoom(zoom + 20)}>
+                    <ZoomIn className="h-2.5 w-2.5" />
+                  </Button>
+                </div>
+
+                {/* Track add buttons */}
+                <div className="flex items-center gap-0.5">
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/25 hover:text-white/50 hover:bg-white/5 px-1.5" onClick={() => addTrack({ type: 'video', name: 'Video ' + (tracks.filter(t => t.type === 'video').length + 1), muted: false, locked: false, visible: true, height: 64 })}>
+                    <Plus className="h-2.5 w-2.5 mr-0.5" />Video
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/25 hover:text-white/50 hover:bg-white/5 px-1.5" onClick={() => addTrack({ type: 'audio', name: 'Audio ' + (tracks.filter(t => t.type === 'audio').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
+                    <Plus className="h-2.5 w-2.5 mr-0.5" />Audio
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/25 hover:text-white/50 hover:bg-white/5 px-1.5" onClick={() => addTrack({ type: 'text', name: 'Texto ' + (tracks.filter(t => t.type === 'text').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
+                    <Plus className="h-2.5 w-2.5 mr-0.5" />Texto
+                  </Button>
+                </div>
+
+                <Badge variant="secondary" className="text-[9px] bg-white/3 text-white/30 border-white/5">
+                  {tracks.length} pistas &bull; {clips.length} clips
+                </Badge>
+              </div>
             </div>
 
-            {/* Timeline Tracks */}
-            <TimelineRuler />
-            <div ref={timelineRef} className="flex-1 overflow-y-auto overflow-x-auto relative" onClick={handleTimelineClick}>
-              <Playhead />
-              {tracks.map((track) => (
-                <TimelineTrack key={track.id} track={track} />
-              ))}
-            </div>
+            {/* Timeline content */}
+            <ScrollArea className="flex-1">
+              <div ref={timelineContentRef} className="relative min-w-full">
+                <div className="sticky top-0 z-10">
+                  <div className="flex">
+                    <div className="w-[120px] flex-shrink-0 bg-[#12122a] border-b border-white/5 border-r border-white/5" />
+                    <TimelineRuler />
+                  </div>
+                </div>
+                <div className="relative">
+                  <div className="sticky left-0 pointer-events-none z-20" style={{ width: '120px' }} />
+                  <Playhead />
+                  {tracks.map((track) => (
+                    <TimelineTrack key={track.id} track={track} />
+                  ))}
+                </div>
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           </div>
+        </div>
 
-          {/* Bottom Status */}
-          <div className="flex items-center justify-between px-3 py-1 bg-[#0e0e22] text-[9px] text-gray-600">
-            <div className="flex items-center gap-3">
-              <span>Clips: {totalClips}</span>
-              <span>Pistas: {tracks.length}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span>Espacio: Play/Pause</span>
-              <span>S: Cortar</span>
-              <span>Ctrl+D: Duplicar</span>
-              <span>Del: Eliminar</span>
-            </div>
-          </div>
+        {/* RIGHT: Properties Panel */}
+        <div className="w-[240px] flex-shrink-0 border-l border-white/5">
+          <PropertiesPanel />
+        </div>
+      </div>
+
+      {/* ===== BOTTOM STATUS BAR ===== */}
+      <div className="flex items-center justify-between px-3 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] text-white/20">
+            WebM | YouTube, Instagram, TikTok, Facebook
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] text-white/20">
+            Espacio = Play/Pausa
+          </span>
+          <span className="text-[9px] text-white/20">
+            1-7 = Herramientas
+          </span>
+          <span className="text-[9px] text-white/20">
+            Supr = Eliminar
+          </span>
         </div>
       </div>
     </div>
   )
+}
+
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  const ms = Math.floor((seconds % 1) * 10)
+  return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0') + '.' + ms
 }
