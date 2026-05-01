@@ -80,14 +80,16 @@ interface TimelineState {
 
 let clipCounter = 0
 
-// Helper: always ensure clips is an array
+// Helper: always ensure clips is an array with NO null/undefined items
 const safeClips = (state: TimelineState): TimelineClipData[] => {
-  return Array.isArray(state.clips) ? state.clips : []
+  if (!Array.isArray(state.clips)) return []
+  return state.clips.filter((c): c is TimelineClipData => c != null)
 }
 
-// Helper: always ensure tracks is an array
+// Helper: always ensure tracks is an array with NO null/undefined items
 const safeTracks = (state: TimelineState): TimelineTrackData[] => {
-  return Array.isArray(state.tracks) ? state.tracks : []
+  if (!Array.isArray(state.tracks)) return []
+  return state.tracks.filter((t): t is TimelineTrackData => t != null)
 }
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({

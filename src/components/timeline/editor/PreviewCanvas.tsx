@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useMemo } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
@@ -10,44 +10,80 @@ import {
 } from 'lucide-react'
 
 export function PreviewCanvas() {
-  const currentTime = useTimelineStore((s) => s.currentTime)
-  const isPlaying = useTimelineStore((s) => s.isPlaying)
+  const currentTime = useTimelineStore((s) => s.currentTime) ?? 0
+  const isPlaying = useTimelineStore((s) => s.isPlaying) ?? false
   const setIsPlaying = useTimelineStore((s) => s.setIsPlaying)
   const setCurrentTime = useTimelineStore((s) => s.setCurrentTime)
-  const clips = useTimelineStore((s) => s.clips)
-  const tracks = useTimelineStore((s) => s.tracks)
-  const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
-  const zoom = useTimelineStore((s) => s.zoom)
+  const zoom = useTimelineStore((s) => s.zoom) ?? 80
   const [volume, setVolume] = useState(80)
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const totalDuration = useTimelineStore(getTotalDuration)
+
+  // Safe clips and tracks
+  const rawClips = useTimelineStore((s) => s.clips)
+  const rawTracks = useTimelineStore((s) => s.tracks)
+
+  const clips = useMemo(() => {
+    if (!Array.isArray(rawClips)) return []
+    return rawClips.filter((c): c is typeof rawClips[number] => c != null)
+  }, [rawClips])
+
+  const tracks = useMemo(() => {
+    if (!Array.isArray(rawTracks)) return []
+    return rawTracks.filter((t): t is typeof rawTracks[number] => t != null)
+  }, [rawTracks])
+
+  // Safe total duration
+  const totalDuration = useMemo(() => {
+    try {
+      if (!clips || clips.length === 0) return 30
+      const maxEnd = clips.reduce((max, c) => {
+        const end = (c.startTime || 0) + (c.duration || 0)
+        return Math.max(max, end)
+      }, 0)
+      return Math.max(30, maxEnd) + 5
+    } catch {
+      return 30
+    }
+  }, [clips])
 
   // Get active clips at current time
-  const getActiveClips = () => {
-    return clips.filter(
-      (c) => currentTime >= c.startTime && currentTime < c.startTime + c.duration
-    )
-  }
+  const activeClips = useMemo(() => {
+    try {
+      return clips.filter(
+        (c) => c && currentTime >= c.startTime && currentTime < c.startTime + c.duration
+      )
+    } catch {
+      return []
+    }
+  }, [clips, currentTime])
 
-  const activeClips = getActiveClips()
-
-  // Sort: image below, video above, text on top
-  const sortedClips = [...activeClips].sort((a, b) => {
-    const order: Record<string, number> = { image: 0, video: 1, text: 2, audio: 3 }
-    return (order[a.type] || 0) - (order[b.type] || 0)
-  })
+  const sortedClips = useMemo(() => {
+    try {
+      return [...activeClips].sort((a, b) => {
+        const order: Record<string, number> = { image: 0, video: 1, text: 2, audio: 3 }
+        return (order[a?.type] || 0) - (order[b?.type] || 0)
+      })
+    } catch {
+      return []
+    }
+  }, [activeClips])
 
   // Check track visibility
   const isTrackVisible = (trackId: string) => {
-    const track = tracks.find((t) => t.id === trackId)
-    return track ? track.visible && !track.muted : true
+    try {
+      const track = tracks.find((t) => t.id === trackId)
+      return track ? track.visible && !track.muted : true
+    } catch {
+      return true
+    }
   }
 
   // Get video filter CSS
-  const getFilterCSS = (clip: typeof clips[0]): string => {
+  const getFilterCSS = (clip: typeof clips[0]) => {
+    if (!clip) return 'none'
     switch (clip.filter) {
       case 'grayscale': return 'grayscale(100%)'
       case 'sepia': return 'sepia(100%)'
@@ -71,10 +107,11 @@ export function PreviewCanvas() {
 
   // Find active video clip and set its source
   const activeVideoClip = sortedClips.find(
-    (c) => c.type === 'video' && isTrackVisible(c.trackId) && c.previewUrl
+    (c) => c && c.type === 'video' && isTrackVisible(c.trackId) && c.previewUrl
   )
 
   const formatTime = (seconds: number) => {
+    if (typeof seconds !== 'number' || isNaN(seconds)) seconds = 0
     const m = Math.floor(seconds / 60)
     const s = Math.floor(seconds % 60)
     const ms = Math.floor((seconds % 1) * 10)
@@ -119,8 +156,8 @@ export function PreviewCanvas() {
         )}
 
         {/* Image layers */}
-        {sortedClips
-          .filter((c) => c.type === 'image' && c.previewUrl && isTrackVisible(c.trackId))
+        {(sortedClips || [])
+          .filter((c) => c && c.type === 'image' && c.previewUrl && isTrackVisible(c.trackId))
           .map((clip) => (
             <div
               key={clip.id}
@@ -142,8 +179,8 @@ export function PreviewCanvas() {
           ))}
 
         {/* Text layers */}
-        {sortedClips
-          .filter((c) => c.type === 'text' && c.text && isTrackVisible(c.trackId))
+        {(sortedClips || [])
+          .filter((c) => c && c.type === 'text' && c.text && isTrackVisible(c.trackId))
           .map((clip) => (
             <div
               key={clip.id}
@@ -170,7 +207,7 @@ export function PreviewCanvas() {
           ))}
 
         {/* Empty state */}
-        {sortedClips.length === 0 && (
+        {(!sortedClips || sortedClips.length === 0) && (
           <div className="text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3">
               <svg className="w-7 h-7 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -188,10 +225,10 @@ export function PreviewCanvas() {
         </div>
 
         {/* Active clip indicator */}
-        {sortedClips.filter((c) => c.type !== 'audio').length > 0 && (
+        {sortedClips.filter((c) => c && c.type !== 'audio').length > 0 && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1">
             {sortedClips
-              .filter((c) => c.type !== 'audio')
+              .filter((c) => c && c.type !== 'audio')
               .map((clip) => (
                 <span
                   key={clip.id}
@@ -216,7 +253,7 @@ export function PreviewCanvas() {
           }}
         >
           <div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-75"
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-75"
             style={{ width: `${totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0}%` }}
           />
           <div
@@ -242,7 +279,7 @@ export function PreviewCanvas() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-400 hover:to-indigo-400 shadow-lg shadow-blue-500/20"
+              className="h-8 w-8 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-500/20"
               onClick={() => setIsPlaying(!isPlaying)}
             >
               {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
