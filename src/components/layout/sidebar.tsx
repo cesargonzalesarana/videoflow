@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useAppStore, type SidebarSection } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame, LayoutTemplate, FolderOpen } from 'lucide-react'
+import { Video, Calendar, Sparkles, Settings, LayoutDashboard, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -19,9 +19,7 @@ const sidebarItems: SidebarItem[] = [
   { id: 'video-creator', label: 'Crear Video', icon: <Video className="h-5 w-5" /> },
   { id: 'scheduler', label: 'Programar', icon: <Calendar className="h-5 w-5" /> },
   { id: 'ai-trends', label: 'IA Trends', icon: <Flame className="h-5 w-5" /> },
-  { id: 'media', label: 'Biblioteca', icon: <FolderOpen className="h-5 w-5" /> },
-  { id: 'templates', label: 'Plantillas', icon: <LayoutTemplate className="h-5 w-5" /> },
-  { id: 'settings', label: 'ConfiguraciÃ³n', icon: <Settings className="h-5 w-5" /> },
+  { id: 'settings', label: 'Configuración', icon: <Settings className="h-5 w-5" /> },
 ]
 
 export function Sidebar() {
@@ -33,17 +31,31 @@ export function Sidebar() {
       if (!user?.id) return
       try {
         const [videosRes, postsRes] = await Promise.all([
-          fetch('/api/videos'),
-          fetch('/api/schedule')
+          fetch(`/api/videos?userId=${user.id}`).catch(() => null),
+          fetch(`/api/schedule?userId=${user.id}`).catch(() => null)
         ])
-        const videosData = await videosRes.json()
-        const postsData = await postsRes.json()
-        const vids = videosData.videos || []
-        const posts = postsData.posts || []
+        
+        let vids: any[] = []
+        let posts: any[] = []
+        
+        if (videosRes && videosRes.ok) {
+          try {
+            const videosData = await videosRes.json()
+            vids = Array.isArray(videosData?.videos) ? videosData.videos : []
+          } catch { vids = [] }
+        }
+        
+        if (postsRes && postsRes.ok) {
+          try {
+            const postsData = await postsRes.json()
+            posts = Array.isArray(postsData?.posts) ? postsData.posts : []
+          } catch { posts = [] }
+        }
+        
         setStats({
           videos: vids.length,
-          scheduled: posts.filter((p: any) => p.status === 'scheduled').length,
-          published: posts.filter((p: any) => p.status === 'published').length + vids.filter((v: any) => v.status === 'completed').length,
+          scheduled: posts.filter((p: any) => p?.status === 'scheduled').length,
+          published: posts.filter((p: any) => p?.status === 'published').length + vids.filter((v: any) => v?.status === 'completed').length,
         })
       } catch (error) {
         console.error('Error fetching sidebar stats:', error)
@@ -75,11 +87,11 @@ export function Sidebar() {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
-          {sidebarItems.map((item) => {
+          {(Array.isArray(sidebarItems) ? sidebarItems : []).map((item) => {
             const isActive = currentView === item.id
             return (
               <Button
-                key={item.id}
+                key={item?.id || Math.random()}
                 variant="ghost"
                 onClick={() => handleNavClick(item.id)}
                 className={cn(
@@ -109,7 +121,7 @@ export function Sidebar() {
         {/* Quick stats */}
         <div className="px-3 py-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Resumen RÃ¡pido
+            Resumen Rápido
           </p>
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
@@ -136,7 +148,7 @@ export function Sidebar() {
             <span className="text-xs font-semibold">Plan Pro</span>
           </div>
           <p className="text-xs text-muted-foreground mb-2">
-            Desbloquea IA avanzada y exportaciÃ³n 4K
+            Desbloquea IA avanzada y exportación 4K
           </p>
           <Button size="sm" className="w-full bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-xs h-8">
             Actualizar
