@@ -1,9 +1,8 @@
 ﻿'use client'
 
 import { useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAppStore } from '@/lib/store'
-import { LandingPage } from '@/components/landing/landing-page'
+import { AuthForm } from '@/components/auth/auth-form'
 import { Navbar } from '@/components/layout/navbar'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Dashboard } from '@/components/dashboard/dashboard'
@@ -13,10 +12,6 @@ import { ScheduleList } from '@/components/scheduler/schedule-list'
 import { TrendsFeed } from '@/components/ai/trends-feed'
 import { ScriptGenerator } from '@/components/ai/script-generator'
 import { SettingsPanel } from '@/components/settings/settings-panel'
-import { ProjectList } from '@/components/projects/project-list'
-import { TemplateGallery } from '@/components/templates/template-gallery'
-import { MediaLibrary } from '@/components/media/media-library'
-import { OnboardingWrapper } from '@/components/onboarding/onboarding-wrapper'
 import { AnimatePresence, motion } from 'framer-motion'
 
 export default function Home() {
@@ -26,18 +21,15 @@ export default function Home() {
     async function checkSession() {
       try {
         setAuthLoading(true)
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (session?.user) {
-          const user = session.user
-          login({
-            id: user.id,
-            email: user.email!,
-            name: user.user_metadata?.name || user.email!
-          })
-          // Sync user profile to database in background
-          fetch('/api/auth').catch(() => {})
+        const res = await fetch('/api/auth', { method: 'GET' })
+        if (!res.ok) {
+          setAuthLoading(false)
+          return
+        }
+        const data = await res.json()
+        
+        if (data.authenticated && data.user) {
+          login(data.user)
         }
       } catch (error) {
         console.error('Session check failed:', error)
@@ -46,7 +38,7 @@ export default function Home() {
       }
     }
     checkSession()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isAuthenticated === false && useAppStore.getState().isAuthLoading) {
     return (
@@ -64,22 +56,25 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return <LandingPage />
+    return <AuthForm />
   }
 
+  // FULL-SCREEN: Editor de video sin sidebar ni navbar
   if (currentView === 'video-creator') {
     return <VideoCreator />
   }
 
+  // Layout normal con sidebar y navbar para las demas vistas
   return (
     <div className="min-h-screen flex">
-      <OnboardingWrapper />
       <aside className="hidden md:flex w-64 flex-col border-r border-border/50 glass-strong">
         <Sidebar />
       </aside>
+
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+
+        <main className="flex-1 overflow-hidden p-4 md:p-6 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}
@@ -89,21 +84,21 @@ export default function Home() {
               transition={{ duration: 0.2 }}
             >
               {currentView === 'dashboard' && <Dashboard />}
-              {currentView === 'projects' && <ProjectList />}
-              {currentView === 'templates' && <TemplateGallery />}
-              {currentView === 'media' && <MediaLibrary />}
+
               {currentView === 'scheduler' && (
                 <div className="space-y-6">
                   <CalendarView />
                   <ScheduleList />
                 </div>
               )}
+
               {currentView === 'ai-trends' && (
                 <div className="space-y-6">
                   <ScriptGenerator />
                   <TrendsFeed />
                 </div>
               )}
+
               {currentView === 'settings' && <SettingsPanel />}
             </motion.div>
           </AnimatePresence>
