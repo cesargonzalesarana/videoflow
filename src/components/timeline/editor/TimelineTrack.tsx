@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { TimelineClipBlock } from './TimelineClipBlock'
 
@@ -17,36 +17,28 @@ interface TimelineTrackProps {
 }
 
 export function TimelineTrack({ track }: TimelineTrackProps) {
-  const zoom = useTimelineStore((s) => s.zoom) ?? 80
-  const scrollX = useTimelineStore((s) => s.scrollX) ?? 0
+  const zoom = useTimelineStore((s) => s.zoom)
+  const scrollX = useTimelineStore((s) => s.scrollX)
   const updateTrack = useTimelineStore((s) => s.updateTrack)
-  const getClipsOnTrack = useTimelineStore((s) => s.getClipsOnTrack)
   const selectedClipId = useTimelineStore((s) => s.selectedClipId)
   const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
   const addClip = useTimelineStore((s) => s.addClip)
+  const allClips = useTimelineStore((s) => s.clips)
 
-  // Calculate total duration locally instead of using store function
-  const allClips = useTimelineStore((s) => s.clips) || []
-  const totalDuration = React.useMemo(() => {
-    try {
-      if (!allClips || allClips.length === 0) return 30
-      const maxEnd = allClips.reduce((max, c) => {
-        const end = (c.startTime || 0) + (c.duration || 0)
-        return Math.max(max, end)
-      }, 0)
-      return Math.max(30, maxEnd) + 5
-    } catch {
-      return 30
-    }
+  // ✅ FIX: Read clips directly from s.clips instead of using getClipsOnTrack
+  // This ensures Zustand detects changes when clips are added/removed
+  const clips = useMemo(() => {
+    if (!Array.isArray(allClips)) return []
+    return allClips
+      .filter((c) => c && c.trackId === track.id)
+      .sort((a, b) => a.startTime - b.startTime)
+  }, [allClips, track.id])
+
+  // ✅ FIX: Calculate totalDuration directly from allClips
+  const totalDuration = useMemo(() => {
+    if (!Array.isArray(allClips) || allClips.length === 0) return 35
+    return Math.max(35, ...allClips.map((c) => c.startTime + c.duration)) + 5
   }, [allClips])
-
-  const clips = React.useMemo(() => {
-    try {
-      return getClipsOnTrack(track.id) || []
-    } catch {
-      return []
-    }
-  }, [getClipsOnTrack, track.id])
 
   const totalWidth = totalDuration * zoom
 
@@ -103,8 +95,6 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
   }
-
-  const safeClips = Array.isArray(clips) ? clips : []
 
   return (
     <div className="flex items-stretch border-b border-white/5 last:border-b-0 select-none">
@@ -171,12 +161,12 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
           ))}
 
           {/* Clips */}
-          {safeClips.map((clip) => (
+          {clips.map((clip) => (
             <TimelineClipBlock
-              key={clip?.id || Math.random()}
+              key={clip.id}
               clip={clip}
               trackId={track.id}
-              isSelected={selectedClipId === clip?.id}
+              isSelected={selectedClipId === clip.id}
               isLocked={track.locked}
               zoom={zoom}
             />
