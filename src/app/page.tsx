@@ -67,6 +67,10 @@ export default function Home() {
     return <LandingPage />
   }
 
+  if (currentView === 'video-creator') {
+    return <VideoCreator />
+  }
+
   return (
     <div className="min-h-screen flex">
       <OnboardingWrapper />
@@ -88,7 +92,6 @@ export default function Home() {
               {currentView === 'projects' && <ProjectList />}
               {currentView === 'templates' && <TemplateGallery />}
               {currentView === 'media' && <MediaLibrary />}
-              {currentView === 'video-creator' && <div className="-m-4 md:-m-6 h-[calc(100vh-64px)]"><VideoCreator /></div>}
               {currentView === 'scheduler' && (
                 <div className="space-y-6">
                   <CalendarView />
