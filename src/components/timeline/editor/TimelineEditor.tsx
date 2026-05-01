@@ -148,7 +148,7 @@ export function TimelineEditor() {
     }
   }
 
-  const safeTracks = Array.isArray(tracks) ? tracks : []
+  const safeTracks = Array.isArray(tracks) ? tracks.filter((t) => t != null) : []
 
   return (
     <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
