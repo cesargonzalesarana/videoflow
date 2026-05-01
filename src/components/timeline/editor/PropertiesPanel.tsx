@@ -3,11 +3,22 @@
 import { useTimelineStore } from '@/lib/timeline-store'
 
 export function PropertiesPanel() {
-  const { tracks, selectedClipId, updateClip, removeClip, splitClip, duplicateClip } = useTimelineStore()
+  const store = useTimelineStore()
 
-  const selectedClip = tracks
-    .flatMap((t) => t.clips)
-    .find((c) => c.id === selectedClipId)
+  // ✅ GUARD: leer tracks con null-safe
+  const rawTracks = store.tracks
+
+  const selectedClip = (() => {
+    try {
+      if (!Array.isArray(rawTracks)) return undefined
+      return rawTracks
+        .filter((t) => t != null && Array.isArray(t.clips))
+        .flatMap((t) => t.clips.filter((c) => c != null))
+        .find((c) => c.id === store.selectedClipId)
+    } catch {
+      return undefined
+    }
+  })()
 
   if (!selectedClip) {
     return (
@@ -24,6 +35,11 @@ export function PropertiesPanel() {
     )
   }
 
+  const updateClip = store.updateClip
+  const removeClip = store.removeClip
+  const splitClip = store.splitClip
+  const duplicateClip = store.duplicateClip
+
   return (
     <div className="w-56 flex-shrink-0 bg-[#16162a] border-l border-[#2a2a4a] flex flex-col overflow-hidden">
       <div className="p-3 border-b border-[#2a2a4a]">
@@ -33,7 +49,7 @@ export function PropertiesPanel() {
         <div>
           <label className="text-[10px] text-gray-500 uppercase tracking-wider">Nombre</label>
           <input
-            value={selectedClip.name}
+            value={selectedClip.name || ''}
             onChange={(e) => updateClip(selectedClip.id, { name: e.target.value })}
             className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
           />
@@ -51,7 +67,7 @@ export function PropertiesPanel() {
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Inicio (s)</label>
             <input
               type="number"
-              value={selectedClip.startTime.toFixed(2)}
+              value={(selectedClip.startTime || 0).toFixed(2)}
               onChange={(e) => updateClip(selectedClip.id, { startTime: Number(e.target.value) })}
               step="0.1"
               className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
@@ -61,7 +77,7 @@ export function PropertiesPanel() {
             <label className="text-[10px] text-gray-500 uppercase tracking-wider">Duracion (s)</label>
             <input
               type="number"
-              value={selectedClip.duration.toFixed(2)}
+              value={(selectedClip.duration || 0).toFixed(2)}
               onChange={(e) => updateClip(selectedClip.id, { duration: Math.max(0.1, Number(e.target.value)) })}
               step="0.1"
               className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
@@ -136,7 +152,7 @@ export function PropertiesPanel() {
             <div>
               <label className="text-[10px] text-gray-500 uppercase tracking-wider">Texto</label>
               <textarea
-                value={selectedClip.text}
+                value={selectedClip.text || ''}
                 onChange={(e) => updateClip(selectedClip.id, { text: e.target.value })}
                 rows={3}
                 className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none resize-none"
