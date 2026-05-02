@@ -17,16 +17,37 @@ interface TimelineTrackProps {
 }
 
 export function TimelineTrack({ track }: TimelineTrackProps) {
-  const zoom = useTimelineStore((s) => s.zoom)
+  const zoom = useTimelineStore((s) => s.zoom) ?? 80
+  const scrollX = useTimelineStore((s) => s.scrollX) ?? 0
   const updateTrack = useTimelineStore((s) => s.updateTrack)
   const getClipsOnTrack = useTimelineStore((s) => s.getClipsOnTrack)
   const selectedClipId = useTimelineStore((s) => s.selectedClipId)
   const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
   const addClip = useTimelineStore((s) => s.addClip)
-  const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
-  const totalDuration = useTimelineStore(getTotalDuration)
 
-  const clips = useTimelineStore((s) => getClipsOnTrack(track.id))
+  // Calculate total duration locally instead of using store function
+  const allClips = useTimelineStore((s) => s.clips) || []
+  const totalDuration = React.useMemo(() => {
+    try {
+      if (!allClips || allClips.length === 0) return 30
+      const maxEnd = allClips.reduce((max, c) => {
+        const end = (c.startTime || 0) + (c.duration || 0)
+        return Math.max(max, end)
+      }, 0)
+      return Math.max(30, maxEnd) + 5
+    } catch {
+      return 30
+    }
+  }, [allClips])
+
+  const clips = React.useMemo(() => {
+    try {
+      return getClipsOnTrack(track.id) || []
+    } catch {
+      return []
+    }
+  }, [getClipsOnTrack, track.id])
+
   const totalWidth = totalDuration * zoom
 
   const trackColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -52,7 +73,7 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
       if (!data) return
 
       const rect = e.currentTarget.getBoundingClientRect()
-      const x = e.clientX - rect.left
+      const x = e.clientX - rect.left + scrollX
       const startTime = Math.max(0, Math.round((x / zoom) * 10) / 10)
 
       addClip({
@@ -83,11 +104,13 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
     e.preventDefault()
   }
 
+  const safeClips = Array.isArray(clips) ? clips : []
+
   return (
     <div className="flex items-stretch border-b border-white/5 last:border-b-0 select-none">
-      {/* Track header - STICKY LEFT */}
+      {/* Track header */}
       <div
-        className="w-[140px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/5 bg-[#12122a] sticky left-0 z-10"
+        className="w-[140px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/5 bg-[#12122a]"
         style={{ height: `${track.height}px` }}
       >
         <div
@@ -138,6 +161,7 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
         onDragOver={handleDragOver}
       >
         <div className="absolute inset-0" style={{ width: `${totalWidth}px` }}>
+          {/* Grid lines */}
           {Array.from({ length: Math.ceil(totalDuration / 5) + 1 }).map((_, i) => (
             <div
               key={i}
@@ -146,12 +170,13 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
             />
           ))}
 
-          {(clips || []).map((clip) => (
+          {/* Clips */}
+          {safeClips.map((clip) => (
             <TimelineClipBlock
-              key={clip.id}
+              key={clip?.id || Math.random()}
               clip={clip}
               trackId={track.id}
-              isSelected={selectedClipId === clip.id}
+              isSelected={selectedClipId === clip?.id}
               isLocked={track.locked}
               zoom={zoom}
             />

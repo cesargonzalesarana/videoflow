@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { TimelineRuler } from './TimelineRuler'
 import { TimelineTrack } from './TimelineTrack'
@@ -9,7 +9,6 @@ import { MediaPanel } from './MediaPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
 import { Button } from '@/components/ui/button'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/lib/store'
 import {
@@ -20,24 +19,19 @@ import {
 import { toast } from 'sonner'
 import { exportWithAudio } from './exportWithAudio'
 
-export const TRACK_HEADER_WIDTH = 140
-
 export function TimelineEditor() {
   const {
     tracks, clips, currentTime, isPlaying, zoom,
     setIsPlaying, setCurrentTime, setZoom, initializeDefaultTracks,
-    clearAll, scrollX, setScrollX, getTotalDuration,
-    addTrack
+    clearAll, getTotalDuration, addTrack
   } = useTimelineStore()
 
   const { isProcessing, setProcessing, setProcessingProgress, processingProgress } = useAppStore()
-  const timelineContentRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [audioEnabled, setAudioEnabled] = useState(true)
 
-  const safeClips = Array.isArray(clips) ? clips : []
-  const safeTracks = Array.isArray(tracks) ? tracks.filter(Boolean) : []
-
   const totalDuration = useTimelineStore(getTotalDuration)
+  const totalWidth = totalDuration * zoom
 
   useEffect(() => {
     initializeDefaultTracks()
@@ -65,13 +59,14 @@ export function TimelineEditor() {
   }, [isPlaying, currentTime, totalDuration, setIsPlaying, setCurrentTime])
 
   useEffect(() => {
-    if (!timelineContentRef.current || !isPlaying) return
-    const playheadX = currentTime * zoom
-    const containerWidth = timelineContentRef.current.clientWidth
-    if (playheadX - scrollX > containerWidth - 100) {
-      setScrollX(playheadX - containerWidth + 200)
+    if (!scrollContainerRef.current || !isPlaying) return
+    const playheadX = 140 + currentTime * zoom
+    const containerWidth = scrollContainerRef.current.clientWidth
+    const scrollLeft = scrollContainerRef.current.scrollLeft
+    if (playheadX - scrollLeft > containerWidth - 100) {
+      scrollContainerRef.current.scrollLeft = playheadX - containerWidth + 200
     }
-  }, [currentTime, zoom, isPlaying, scrollX, setScrollX])
+  }, [currentTime, zoom, isPlaying])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -119,8 +114,8 @@ export function TimelineEditor() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
-      {/* ===== TOOLBAR ===== */}
+    <div className="h-full w-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
+      {/* TOP TOOLBAR */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -128,7 +123,7 @@ export function TimelineEditor() {
             Editor de Timeline
           </h2>
           <Badge variant="secondary" className="text-[10px] bg-white/5 text-white/40 border-white/10">
-            {safeClips.length} clips
+            {clips.length} clips
           </Badge>
         </div>
 
@@ -177,99 +172,90 @@ export function TimelineEditor() {
             {audioEnabled ? (<><Volume2 className="h-3 w-3" />Con audio</>) : (<><VolumeX className="h-3 w-3" />Sin audio</>)}
           </Button>
 
-          <Button variant="ghost" size="sm" className="h-7 ml-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20" onClick={handleExport} disabled={isProcessing || safeClips.length === 0}>
+          <Button variant="ghost" size="sm" className="h-7 ml-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs shadow-lg shadow-violet-500/20" onClick={handleExport} disabled={isProcessing || clips.length === 0}>
             {isProcessing ? (<><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />{processingProgress}%</>) : (<><Download className="h-3 w-3 mr-1.5" />Exportar WebM</>)}
           </Button>
 
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-red-400 hover:bg-red-400/10" onClick={() => { clearAll(); toast.success('Timeline limpiado') }} disabled={safeClips.length === 0} title="Limpiar todo">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-red-400 hover:bg-red-400/10" onClick={() => { clearAll(); toast.success('Timeline limpiado') }} disabled={clips.length === 0} title="Limpiar todo">
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
       </div>
 
-      {/* ===== MAIN AREA ===== */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* LEFT: Media Library */}
-        <div className="w-[240px] flex-shrink-0 border-r border-white/5">
+      {/* MAIN AREA (3 columns) */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* LEFT: Media Panel */}
+        <div className="w-[240px] flex-shrink-0 border-r border-white/5 overflow-hidden">
           <MediaPanel />
         </div>
 
         {/* CENTER: Preview + Timeline */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {/* Preview */}
-          <div className="flex-shrink-0 px-3 pt-3 pb-2">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Preview: 44% of center height */}
+          <div className="flex-shrink-0 overflow-hidden" style={{ height: '44%' }}>
             <PreviewCanvas />
           </div>
 
-          {/* Timeline header bar */}
-          <div className="flex items-center justify-between px-3 py-1 bg-[#0a0a1f] border-t border-b border-white/5 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Timeline</span>
-              <span className="text-[10px] text-white/20">{safeTracks.length} pistas &bull; Ctrl+Scroll para zoom</span>
+          {/* Timeline section: fills remaining space */}
+          <div className="flex-1 flex flex-col border-t border-white/5 min-h-0 overflow-hidden">
+            {/* Timeline sub-toolbar */}
+            <div className="flex items-center justify-between px-3 py-1 bg-[#0a0a1f] border-b border-white/5 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Timeline</span>
+                <span className="text-[10px] text-white/20">{(tracks || []).length} pistas &bull; Ctrl+Scroll para zoom</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'video', name: 'Video ' + ((tracks || []).filter(t => t.type === 'video').length + 1), muted: false, locked: false, visible: true, height: 64 })}>
+                  <Plus className="h-3 w-3 mr-1" />Video
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'image', name: 'Imagen ' + ((tracks || []).filter(t => t.type === 'image').length + 1), muted: false, locked: false, visible: true, height: 56 })}>
+                  <Plus className="h-3 w-3 mr-1" />Imagen
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'text', name: 'Texto ' + ((tracks || []).filter(t => t.type === 'text').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
+                  <Plus className="h-3 w-3 mr-1" />Texto
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'audio', name: 'Audio ' + ((tracks || []).filter(t => t.type === 'audio').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
+                  <Plus className="h-3 w-3 mr-1" />Audio
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'video', name: 'Video ' + (safeTracks.filter(t => t?.type === 'video').length + 1), muted: false, locked: false, visible: true, height: 64 })}>
-                <Plus className="h-3 w-3 mr-1" />Video
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'audio', name: 'Audio ' + (safeTracks.filter(t => t?.type === 'audio').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                <Plus className="h-3 w-3 mr-1" />Audio
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'text', name: 'Texto ' + (safeTracks.filter(t => t?.type === 'text').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                <Plus className="h-3 w-3 mr-1" />Texto
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60 hover:bg-white/5" onClick={() => addTrack({ type: 'image', name: 'Imagen ' + (safeTracks.filter(t => t?.type === 'image').length + 1), muted: false, locked: false, visible: true, height: 48 })}>
-                <Plus className="h-3 w-3 mr-1" />Imagen
-              </Button>
-            </div>
-          </div>
 
-          {/* Timeline area - fills ALL remaining space */}
-          <div className="flex-1 min-h-0 bg-[#080818]">
-            <ScrollArea className="h-full">
-              <div
-                ref={timelineContentRef}
-                data-timeline-content="true"
-                className="relative min-w-full"
-              >
-                {/* Ruler row: track header + ruler */}
-                <div className="sticky top-0 z-10">
-                  <div className="flex">
-                    <div className="flex-shrink-0 bg-[#12122a] border-b border-white/5 border-r border-white/5 h-8 flex items-center px-2">
-                      <span className="text-[9px] text-white/30 uppercase tracking-wider">Pistas</span>
-                    </div>
+            {/* TIMELINE SCROLL CONTAINER */}
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 overflow-auto"
+              data-timeline-scroll="true"
+            >
+              <div className="relative" style={{ minWidth: totalWidth + 140 }}>
+                {/* Ruler row: sticky top */}
+                <div className="flex sticky top-0 z-10" style={{ height: 28 }}>
+                  <div className="w-[140px] flex-shrink-0 sticky left-0 z-20 bg-[#12122a] border-b border-white/5 border-r border-white/5 flex items-center px-3">
+                    <span className="text-[9px] text-white/30 uppercase tracking-wider">Pistas</span>
+                  </div>
+                  <div className="flex-1 bg-[#1a1a2e] border-b border-white/5 cursor-pointer relative overflow-hidden">
                     <TimelineRuler />
                   </div>
                 </div>
 
-                {/* Tracks + Playhead area */}
-                <div className="relative cursor-crosshair" onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const x = e.clientX - rect.left - TRACK_HEADER_WIDTH + scrollX
-                  if (x < 0) return
-                  const time = Math.max(0, Math.min(x / zoom, totalDuration))
-                  setCurrentTime(time)
-                }}>
-                  {/* Playhead */}
-                  <Playhead />
+                {/* Track rows */}
+                {(tracks || []).map((track) => (
+                  <TimelineTrack key={track.id} track={track} />
+                ))}
 
-                  {/* Track rows */}
-                  {safeTracks.map((track) => (
-                    track ? <TimelineTrack key={track.id} track={track} /> : null
-                  ))}
-                </div>
+                {/* Playhead: red vertical line */}
+                <Playhead />
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT: Properties */}
-        <div className="w-[260px] flex-shrink-0 border-l border-white/5">
+        {/* RIGHT: Properties Panel */}
+        <div className="w-[260px] flex-shrink-0 border-l border-white/5 overflow-hidden">
           <PropertiesPanel />
         </div>
       </div>
 
-      {/* ===== FOOTER ===== */}
+      {/* BOTTOM BAR */}
       <div className="flex items-center justify-between px-4 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <span className="text-[9px] text-white/20">
           Exporta en WebM | Compatible con YouTube, Instagram, TikTok, Facebook

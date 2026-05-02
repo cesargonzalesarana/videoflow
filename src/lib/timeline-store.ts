@@ -184,7 +184,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     get().addTrack({ type: 'video', name: 'Video 1', muted: false, locked: false, visible: true, height: 64 })
     get().addTrack({ type: 'video', name: 'Video 2', muted: false, locked: false, visible: true, height: 64 })
-    get().addTrack({ type: 'image', name: 'Imagen', muted: false, locked: false, visible: true, height: 48 })
+    get().addTrack({ type: 'image', name: 'Imagen', muted: false, locked: false, visible: true, height: 56 })
     get().addTrack({ type: 'text', name: 'Texto', muted: false, locked: false, visible: true, height: 48 })
     get().addTrack({ type: 'audio', name: 'Audio', muted: false, locked: false, visible: true, height: 48 })
   },
