@@ -133,7 +133,7 @@ export function MediaPanel() {
       0
     )
 
-    addClip({
+    const clipId = addClip({
       trackId: targetTrack.id,
       type: item.type,
       name: item.name,
@@ -153,6 +153,7 @@ export function MediaPanel() {
       filter: 'none',
     })
     toast.success(`"${item.name}" añadido al timeline`)
+    useTimelineStore.getState().setSelectedClipId(clipId)
   }
 
   const handleDragStart = (e: React.DragEvent, item: MediaItem) => {
@@ -318,7 +319,8 @@ export function MediaPanel() {
                 key={item.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item)}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-grab active:cursor-grabbing group transition-colors"
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer group transition-colors"
+                onClick={() => addToTimeline(item)}
               >
                 {/* Thumbnail */}
                 <div
@@ -347,7 +349,7 @@ export function MediaPanel() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 text-white/40 hover:text-white hover:bg-white/10 transition-opacity"
+                  className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10"
                   onClick={() => addToTimeline(item)}
                   title="Añadir al timeline"
                 >

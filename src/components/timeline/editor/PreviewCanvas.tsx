@@ -89,8 +89,8 @@ export function PreviewCanvas() {
   }, [])
 
   return (
-    <div ref={containerRef} className="flex flex-col bg-black rounded-lg overflow-hidden">
-      <div className="relative aspect-video bg-gradient-to-br from-[#0a0a1a] to-black flex items-center justify-center overflow-hidden">
+    <div ref={containerRef} className="flex flex-col bg-black rounded-lg overflow-hidden h-full">
+      <div className="relative flex-1 bg-gradient-to-br from-[#0a0a1a] to-black flex items-center justify-center overflow-hidden">
         {activeVideoClip && isTrackVisible(activeVideoClip.trackId) && (
           <video
             key={activeVideoClip.id}
@@ -189,7 +189,7 @@ export function PreviewCanvas() {
         )}
       </div>
 
-      <div className="bg-[#0a0a1f] px-3 py-2 space-y-2">
+      <div className="bg-[#0a0a1f] px-3 py-2 space-y-2 flex-shrink-0">
         <div
           className="relative h-1.5 bg-white/10 rounded-full cursor-pointer group/scrubber"
           onClick={(e) => {
