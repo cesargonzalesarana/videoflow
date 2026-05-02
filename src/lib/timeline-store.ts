@@ -14,22 +14,17 @@ export interface TimelineClipData {
   file?: File
   previewUrl?: string
   storagePath?: string
-  // Audio
   volume: number
-  // Visual
   opacity: number
-  // Text props
   text?: string
   fontSize?: number
   fontWeight?: 'normal' | 'bold' | 'lighter'
   fontFamily?: string
   textColor?: string
   textAlign?: 'left' | 'center' | 'right'
-  // Image / video props
   scale: number
   positionX: number
   positionY: number
-  // Effects
   transition: 'none' | 'fade' | 'slide-left' | 'slide-right' | 'dissolve' | 'zoom-in'
   filter: 'none' | 'grayscale' | 'sepia' | 'blur' | 'brightness-up' | 'contrast-up'
 }
@@ -80,18 +75,6 @@ interface TimelineState {
 
 let clipCounter = 0
 
-// Helper: always ensure clips is an array with NO null/undefined items
-const safeClips = (state: TimelineState): TimelineClipData[] => {
-  if (!Array.isArray(state.clips)) return []
-  return state.clips.filter((c): c is TimelineClipData => c != null)
-}
-
-// Helper: always ensure tracks is an array with NO null/undefined items
-const safeTracks = (state: TimelineState): TimelineTrackData[] => {
-  if (!Array.isArray(state.tracks)) return []
-  return state.tracks.filter((t): t is TimelineTrackData => t != null)
-}
-
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   tracks: [],
   clips: [],
@@ -103,52 +86,52 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   addTrack: (track) => {
     const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
-    set((state) => ({ tracks: [...(safeTracks(state) || []), { ...track, id }] }))
+    set((state) => ({ tracks: [...state.tracks, { ...track, id }] }))
     return id
   },
 
   removeTrack: (id) => {
     set((state) => ({
-      tracks: (safeTracks(state) || []).filter((t) => t.id !== id),
-      clips: (safeClips(state) || []).filter((c) => c.trackId !== id),
+      tracks: state.tracks.filter((t) => t.id !== id),
+      clips: state.clips.filter((c) => c.trackId !== id),
     }))
   },
 
   updateTrack: (id, updates) => {
     set((state) => ({
-      tracks: (safeTracks(state) || []).map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      tracks: state.tracks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
     }))
   },
 
   addClip: (clip) => {
     const id = `clip_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
-    set((state) => ({ clips: [...(safeClips(state) || []), { ...clip, id }] }))
+    set((state) => ({ clips: [...state.clips, { ...clip, id }] }))
     return id
   },
 
   removeClip: (id) => {
     set((state) => ({
-      clips: (safeClips(state) || []).filter((c) => c.id !== id),
+      clips: state.clips.filter((c) => c.id !== id),
       selectedClipId: state.selectedClipId === id ? null : state.selectedClipId,
     }))
   },
 
   updateClip: (id, updates) => {
     set((state) => ({
-      clips: (safeClips(state) || []).map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      clips: state.clips.map((c) => (c.id === id ? { ...c, ...updates } : c)),
     }))
   },
 
   moveClip: (id, newTrackId, newStartTime) => {
     set((state) => ({
-      clips: (safeClips(state) || []).map((c) =>
+      clips: state.clips.map((c) =>
         c.id === id ? { ...c, trackId: newTrackId, startTime: Math.max(0, newStartTime) } : c
       ),
     }))
   },
 
   splitClip: (id, splitTime) => {
-    const clip = (safeClips(get()) || []).find((c) => c.id === id)
+    const clip = get().clips.find((c) => c.id === id)
     if (!clip) return
     const relativeTime = splitTime - clip.startTime
     if (relativeTime <= 0 || relativeTime >= clip.duration) return
@@ -158,30 +141,27 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     const newClipId = `clip_${Date.now()}_split_${Math.random().toString(36).substr(2, 5)}`
 
-    set((state) => {
-      const currentClips = safeClips(state) || []
-      return {
-        clips: [
-          ...currentClips.map((c) =>
-            c.id === id ? { ...c, duration: firstDuration } : c
-          ),
-          {
-            ...clip,
-            id: newClipId,
-            startTime: splitTime,
-            duration: secondDuration,
-            trimStart: clip.trimStart + firstDuration,
-          },
-        ],
-      }
-    })
+    set((state) => ({
+      clips: [
+        ...state.clips.map((c) =>
+          c.id === id ? { ...c, duration: firstDuration } : c
+        ),
+        {
+          ...clip,
+          id: newClipId,
+          startTime: splitTime,
+          duration: secondDuration,
+          trimStart: clip.trimStart + firstDuration,
+        },
+      ],
+    }))
   },
 
   duplicateClip: (id) => {
-    const clip = (safeClips(get()) || []).find((c) => c.id === id)
+    const clip = get().clips.find((c) => c.id === id)
     if (!clip) return
 
-    const allClips = (safeClips(get()) || []).filter((c) => c.trackId === clip.trackId)
+    const allClips = get().clips.filter((c) => c.trackId === clip.trackId)
     const lastEnd = allClips.reduce((max, c) => Math.max(max, c.startTime + c.duration), 0)
     const newStartTime = Math.max(lastEnd, clip.startTime + clip.duration)
 
@@ -199,17 +179,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   setScrollX: (x) => set({ scrollX: x }),
 
   initializeDefaultTracks: () => {
-    try {
-      const { tracks } = get()
-      if (tracks && tracks.length > 0) return
+    const { tracks } = get()
+    if (tracks.length > 0) return
 
-      get().addTrack({ type: 'video', name: 'Video 1', muted: false, locked: false, visible: true, height: 64 })
-      get().addTrack({ type: 'video', name: 'Video 2', muted: false, locked: false, visible: true, height: 64 })
-      get().addTrack({ type: 'text', name: 'Texto', muted: false, locked: false, visible: true, height: 48 })
-      get().addTrack({ type: 'audio', name: 'Audio', muted: false, locked: false, visible: true, height: 48 })
-    } catch (e) {
-      console.error('[VideoFlow] initializeDefaultTracks error:', e)
-    }
+    get().addTrack({ type: 'video', name: 'Video 1', muted: false, locked: false, visible: true, height: 64 })
+    get().addTrack({ type: 'video', name: 'Video 2', muted: false, locked: false, visible: true, height: 64 })
+    get().addTrack({ type: 'image', name: 'Imagen', muted: false, locked: false, visible: true, height: 48 })
+    get().addTrack({ type: 'text', name: 'Texto', muted: false, locked: false, visible: true, height: 48 })
+    get().addTrack({ type: 'audio', name: 'Audio', muted: false, locked: false, visible: true, height: 48 })
   },
 
   clearAll: () => {
@@ -217,38 +194,22 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   getClipsOnTrack: (trackId) => {
-    try {
-      return (safeClips(get()) || []).filter((c) => c.trackId === trackId).sort((a, b) => a.startTime - b.startTime)
-    } catch {
-      return []
-    }
+    return get().clips.filter((c) => c.trackId === trackId).sort((a, b) => a.startTime - b.startTime)
   },
 
   getSelectedClip: () => {
-    try {
-      return (safeClips(get()) || []).find((c) => c.id === get().selectedClipId)
-    } catch {
-      return undefined
-    }
+    return get().clips.find((c) => c.id === get().selectedClipId)
   },
 
   getTotalDuration: () => {
-    try {
-      const clips = safeClips(get()) || []
-      if (!clips || clips.length === 0) return 30
-      return Math.max(30, ...clips.map((c) => (c.startTime || 0) + (c.duration || 0))) + 5
-    } catch {
-      return 30
-    }
+    const { clips } = get()
+    if (clips.length === 0) return 30
+    return Math.max(30, ...clips.map((c) => c.startTime + c.duration)) + 5
   },
 
   getActiveClipsAtTime: (time) => {
-    try {
-      return (safeClips(get()) || []).filter(
-        (c) => time >= c.startTime && time < c.startTime + c.duration
-      )
-    } catch {
-      return []
-    }
+    return get().clips.filter(
+      (c) => time >= c.startTime && time < c.startTime + c.duration
+    )
   },
 }))

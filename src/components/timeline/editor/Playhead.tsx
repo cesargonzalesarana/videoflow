@@ -1,19 +1,71 @@
 'use client'
 
+import React, { useCallback, useRef } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 
 export function Playhead() {
-  const { currentTime, zoom } = useTimelineStore()
-  const pixelsPerSecond = 10 * zoom
-  const left = currentTime * pixelsPerSecond
+  const currentTime = useTimelineStore((s) => s.currentTime)
+  const zoom = useTimelineStore((s) => s.zoom)
+  const scrollX = useTimelineStore((s) => s.scrollX)
+  const setCurrentTime = useTimelineStore((s) => s.setCurrentTime)
+  const rawTracks = useTimelineStore((s) => s.tracks)
+  const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
+  const totalDuration = useTimelineStore(getTotalDuration)
+
+  const tracks = Array.isArray(rawTracks) ? rawTracks.filter(Boolean) : []
+  const totalHeight = tracks.reduce((sum, t) => sum + (t.height || 0), 0)
+  const playheadX = currentTime * zoom - scrollX
+  const isDragging = useRef(false)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    isDragging.current = true
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      if (!isDragging.current) return
+      const timelineContent = document.querySelector('[data-timeline-content]')
+      if (!timelineContent) return
+      const rect = timelineContent.getBoundingClientRect()
+      const x = moveEvent.clientX - rect.left + scrollX
+      const time = Math.max(0, Math.min(x / zoom, totalDuration))
+      setCurrentTime(time)
+    }
+
+    const handleUp = () => {
+      isDragging.current = false
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }, [zoom, scrollX, totalDuration, setCurrentTime])
+
+  if (playheadX < -10) return null
 
   return (
-    <div
-      className="absolute top-0 bottom-0 pointer-events-none z-20"
-      style={{ left: 128 + left, transform: 'translateX(-0.5px)' }}
-    >
-      <div className="w-3 h-3 bg-red-500 absolute -top-1 -left-[5px] clip-playhead" />
-      <div className="w-0.5 h-full bg-red-500" />
-    </div>
+    <>
+      {/* Invisible wide click target for easy grabbing */}
+      <div
+        className="absolute top-0 z-20 cursor-col-resize"
+        style={{
+          left: `${playheadX - 6}px`,
+          width: '12px',
+          height: `${totalHeight}px`,
+        }}
+        onMouseDown={handleMouseDown}
+      />
+      {/* Visible red line */}
+      <div
+        className="absolute top-0 w-px bg-red-500 z-20 pointer-events-none"
+        style={{
+          left: `${playheadX}px`,
+          height: `${totalHeight}px`,
+        }}
+      >
+        <div className="absolute inset-0 w-px bg-red-400/30 blur-sm" />
+      </div>
+    </>
   )
 }

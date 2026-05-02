@@ -105,7 +105,7 @@ export default function Home() {
 
   // Full-screen editor - NO sidebar, NO navbar, NO API calls from other views
   if (currentView === 'video-creator') {
-    return <VideoCreator />
+    return <div className="h-screen w-screen overflow-hidden"><VideoCreator /></div>
   }
 
   // Show app layout when logged in (only for non-editor views)
