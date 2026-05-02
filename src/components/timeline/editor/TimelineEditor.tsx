@@ -194,9 +194,11 @@ export function TimelineEditor() {
 
         {/* CENTER: Preview + Timeline */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {/* Preview - fixed height */}
-          <div className="flex-shrink-0" style={{ height: '40%' }}>
-            <PreviewCanvas />
+          {/* Preview - fixed height, no overflow */}
+          <div className="flex-shrink-0 overflow-hidden" style={{ maxHeight: '38%' }}>
+            <div className="w-full h-full flex items-center justify-center">
+              <PreviewCanvas />
+            </div>
           </div>
 
           {/* Timeline - takes remaining space */}
