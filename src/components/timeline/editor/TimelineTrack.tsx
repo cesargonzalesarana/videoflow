@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { TimelineClipBlock } from './TimelineClipBlock'
 
@@ -19,14 +19,18 @@ interface TimelineTrackProps {
 export function TimelineTrack({ track }: TimelineTrackProps) {
   const zoom = useTimelineStore((s) => s.zoom)
   const updateTrack = useTimelineStore((s) => s.updateTrack)
-  const getClipsOnTrack = useTimelineStore((s) => s.getClipsOnTrack)
   const selectedClipId = useTimelineStore((s) => s.selectedClipId)
   const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
   const addClip = useTimelineStore((s) => s.addClip)
   const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
   const totalDuration = useTimelineStore(getTotalDuration)
 
-  const clips = useTimelineStore((s) => getClipsOnTrack(track.id))
+  const allClips = useTimelineStore((s) => s.clips || [])
+  const clips = useMemo(
+    () => allClips.filter((c) => c.trackId === track.id).sort((a, b) => a.startTime - b.startTime),
+    [allClips, track.id]
+  )
+
   const totalWidth = totalDuration * zoom
 
   const trackColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
