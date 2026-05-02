@@ -118,6 +118,7 @@ export function TimelineEditor() {
 
   return (
     <div className="h-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
+      {/* ===== TOOLBAR ===== */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -184,17 +185,22 @@ export function TimelineEditor() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* ===== MAIN AREA: 3 columns ===== */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* LEFT: Media Library */}
         <div className="w-[240px] flex-shrink-0 border-r border-white/5">
           <MediaPanel />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="p-4 flex-shrink-0">
+        {/* CENTER: Preview + Timeline */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Preview - fixed height */}
+          <div className="flex-shrink-0" style={{ height: '40%' }}>
             <PreviewCanvas />
           </div>
 
-          <div className="flex-1 flex flex-col border-t border-white/5 min-h-0">
+          {/* Timeline - takes remaining space */}
+          <div className="flex-1 flex flex-col border-t border-white/5 min-h-0" style={{ height: '60%' }}>
             <div className="flex items-center justify-between px-3 py-1 bg-[#0a0a1f] border-b border-white/5 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Timeline</span>
@@ -237,11 +243,13 @@ export function TimelineEditor() {
           </div>
         </div>
 
+        {/* RIGHT: Properties */}
         <div className="w-[260px] flex-shrink-0 border-l border-white/5">
           <PropertiesPanel />
         </div>
       </div>
 
+      {/* ===== FOOTER ===== */}
       <div className="flex items-center justify-between px-4 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <span className="text-[9px] text-white/20">
           Exporta en WebM | Compatible con YouTube, Instagram, TikTok, Facebook
