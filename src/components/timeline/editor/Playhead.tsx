@@ -2,6 +2,7 @@
 
 import React, { useCallback, useRef } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
+import { TRACK_HEADER_WIDTH } from './TimelineEditor'
 
 export function Playhead() {
   const currentTime = useTimelineStore((s) => s.currentTime)
@@ -14,7 +15,8 @@ export function Playhead() {
 
   const tracks = Array.isArray(rawTracks) ? rawTracks.filter(Boolean) : []
   const totalHeight = tracks.reduce((sum, t) => sum + (t.height || 0), 0)
-  const playheadX = currentTime * zoom - scrollX
+  // Position the playhead STARTING from after the track names column
+  const playheadX = currentTime * zoom - scrollX + TRACK_HEADER_WIDTH
   const isDragging = useRef(false)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -27,7 +29,7 @@ export function Playhead() {
       const timelineContent = document.querySelector('[data-timeline-content]')
       if (!timelineContent) return
       const rect = timelineContent.getBoundingClientRect()
-      const x = moveEvent.clientX - rect.left + scrollX
+      const x = moveEvent.clientX - rect.left - TRACK_HEADER_WIDTH + scrollX
       const time = Math.max(0, Math.min(x / zoom, totalDuration))
       setCurrentTime(time)
     }
@@ -41,8 +43,6 @@ export function Playhead() {
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
   }, [zoom, scrollX, totalDuration, setCurrentTime])
-
-  if (playheadX < -10) return null
 
   return (
     <>
