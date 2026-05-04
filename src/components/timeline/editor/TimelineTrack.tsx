@@ -18,18 +18,18 @@ interface TimelineTrackProps {
 
 export function TimelineTrack({ track }: TimelineTrackProps) {
   const zoom = useTimelineStore((s) => s.zoom)
+  const scrollX = useTimelineStore((s) => s.scrollX)
   const updateTrack = useTimelineStore((s) => s.updateTrack)
   const selectedClipId = useTimelineStore((s) => s.selectedClipId)
   const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
   const addClip = useTimelineStore((s) => s.addClip)
+  const allClips = useTimelineStore((s) => s.clips)
   const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
   const totalDuration = useTimelineStore(getTotalDuration)
 
-  const allClips = useTimelineStore((s) => s.clips || [])
-  const clips = useMemo(
-    () => allClips.filter((c) => c.trackId === track.id).sort((a, b) => a.startTime - b.startTime),
-    [allClips, track.id]
-  )
+  const clips = useMemo(() => {
+    return allClips.filter((c) => c.trackId === track.id).sort((a, b) => a.startTime - b.startTime)
+  }, [track.id, allClips])
 
   const totalWidth = totalDuration * zoom
 
@@ -56,7 +56,7 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
       if (!data) return
 
       const rect = e.currentTarget.getBoundingClientRect()
-      const x = e.clientX - rect.left
+      const x = e.clientX - rect.left + scrollX
       const startTime = Math.max(0, Math.round((x / zoom) * 10) / 10)
 
       addClip({
@@ -89,9 +89,9 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
 
   return (
     <div className="flex items-stretch border-b border-white/5 last:border-b-0 select-none">
-      {/* Track header - STICKY LEFT */}
+      {/* Track header */}
       <div
-        className="w-[140px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/5 bg-[#12122a] sticky left-0 z-10"
+        className="w-[140px] flex-shrink-0 flex items-center gap-2 px-3 border-r border-white/5 bg-[#12122a]"
         style={{ height: `${track.height}px` }}
       >
         <div
@@ -142,6 +142,7 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
         onDragOver={handleDragOver}
       >
         <div className="absolute inset-0" style={{ width: `${totalWidth}px` }}>
+          {/* Grid lines */}
           {Array.from({ length: Math.ceil(totalDuration / 5) + 1 }).map((_, i) => (
             <div
               key={i}
@@ -150,7 +151,8 @@ export function TimelineTrack({ track }: TimelineTrackProps) {
             />
           ))}
 
-          {(clips || []).map((clip) => (
+          {/* Clips */}
+          {clips.map((clip) => (
             <TimelineClipBlock
               key={clip.id}
               clip={clip}
