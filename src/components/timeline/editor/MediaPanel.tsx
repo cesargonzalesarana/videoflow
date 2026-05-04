@@ -6,11 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import {
   Upload, Film, Image as ImageIcon, Music, Type,
-  Plus, GripVertical, FileVideo, FileAudio, FileImage,
-  Search, FolderOpen
+  Plus, FileVideo, Search, FolderOpen
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,7 +24,7 @@ interface MediaItem {
 
 export function MediaPanel() {
   const addClip = useTimelineStore((s) => s.addClip)
-  const rawTracks = useTimelineStore((s) => s.tracks)
+  const tracks = useTimelineStore((s) => s.tracks)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddText, setShowAddText] = useState(false)
@@ -34,8 +32,6 @@ export function MediaPanel() {
   const [textDuration, setTextDuration] = useState(3)
   const [activeTab, setActiveTab] = useState<'all' | 'video' | 'audio' | 'image' | 'text'>('all')
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const safeTracks = Array.isArray(rawTracks) ? rawTracks.filter(Boolean) : []
 
   const processFiles = useCallback(
     (files: File[]) => {
@@ -115,11 +111,11 @@ export function MediaPanel() {
     setMediaItems((prev) => [...prev, item])
     setNewText('')
     setShowAddText(false)
-    toast.success('Texto añadido a la biblioteca')
+    toast.success('Texto anadido a la biblioteca')
   }
 
   const addToTimeline = (item: MediaItem) => {
-    const targetTrack = safeTracks.find((t) => t?.type === item.type) || safeTracks[0]
+    const targetTrack = tracks.find((t) => t.type === item.type) || tracks[0]
     if (!targetTrack) {
       toast.error('No hay pistas disponibles')
       return
@@ -127,7 +123,7 @@ export function MediaPanel() {
 
     const existingClips = useTimelineStore
       .getState()
-      .clips.filter((c) => c && c.trackId === targetTrack.id)
+      .clips.filter((c) => c.trackId === targetTrack.id)
     const lastEnd = existingClips.reduce(
       (max, c) => Math.max(max, c.startTime + c.duration),
       0
@@ -152,7 +148,7 @@ export function MediaPanel() {
       transition: 'none',
       filter: 'none',
     })
-    toast.success(`"${item.name}" añadido al timeline`)
+    toast.success(`"${item.name}" anadido al timeline`)
     useTimelineStore.getState().setSelectedClipId(clipId)
   }
 
@@ -199,77 +195,39 @@ export function MediaPanel() {
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0a0a1f] border-r border-white/5">
-      {/* Header */}
       <div className="p-3 border-b border-white/5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white/80">Biblioteca de Medios</h3>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/50 hover:text-white/80"
-              onClick={() => setShowAddText(!showAddText)}
-              title="Añadir texto"
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white/80" onClick={() => setShowAddText(!showAddText)} title="Anadir texto">
               <Type className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/50 hover:text-white/80"
-              onClick={() => fileInputRef.current?.click()}
-              title="Subir archivo"
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white/80" onClick={() => fileInputRef.current?.click()} title="Subir archivo">
               <Upload className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        {/* Add text */}
         {showAddText && (
           <div className="space-y-2 mb-3 p-2 rounded-lg bg-white/5 border border-white/10">
-            <Textarea
-              placeholder="Escribe tu texto..."
-              value={newText}
-              onChange={(e) => setNewText(e.target.value)}
-              className="min-h-[60px] h-auto text-xs bg-transparent border-white/10 text-white"
-              rows={2}
-            />
+            <Textarea placeholder="Escribe tu texto..." value={newText} onChange={(e) => setNewText(e.target.value)} className="min-h-[60px] h-auto text-xs bg-transparent border-white/10 text-white" rows={2} />
             <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                value={textDuration}
-                onChange={(e) => setTextDuration(Number(e.target.value))}
-                className="h-7 w-16 text-xs bg-transparent border-white/10 text-white"
-                min={1}
-                max={60}
-              />
+              <Input type="number" value={textDuration} onChange={(e) => setTextDuration(Number(e.target.value))} className="h-7 w-16 text-xs bg-transparent border-white/10 text-white" min={1} max={60} />
               <span className="text-[10px] text-white/40">segundos</span>
-              <Button
-                size="sm"
-                onClick={addTextToLibrary}
-                className="h-7 text-xs ml-auto bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white"
-              >
+              <Button size="sm" onClick={addTextToLibrary} className="h-7 text-xs ml-auto bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white">
                 <Plus className="h-3 w-3 mr-1" />
-                Añadir
+                Anadir
               </Button>
             </div>
           </div>
         )}
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/30" />
-          <Input
-            placeholder="Buscar medios..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30"
-          />
+          <Input placeholder="Buscar medios..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-8 text-xs pl-7 bg-white/5 border-white/10 text-white placeholder:text-white/30" />
         </div>
       </div>
 
-      {/* Filter tabs */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-white/5">
         {[
           { id: 'all', label: 'Todo' },
@@ -292,25 +250,18 @@ export function MediaPanel() {
         ))}
       </div>
 
-      {/* Media items */}
       <ScrollArea className="flex-1">
-        <div
-          className="p-2 space-y-1 min-h-[200px]"
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-        >
+        <div className="p-2 space-y-1 min-h-[200px]" onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
           {filteredItems.length === 0 ? (
             <div className="text-center py-12 px-4">
               <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-3">
                 <FolderOpen className="h-5 w-5 text-white/20" />
               </div>
               <p className="text-xs text-white/30 mb-1">
-                {mediaItems.length === 0
-                  ? 'Sin medios aún'
-                  : 'Sin resultados'}
+                {mediaItems.length === 0 ? 'Sin medios aun' : 'Sin resultados'}
               </p>
               <p className="text-[10px] text-white/20">
-                Arrastra archivos aquí o usa el botón subir
+                Arrastra archivos aqui o usa el boton subir
               </p>
             </div>
           ) : (
@@ -319,40 +270,25 @@ export function MediaPanel() {
                 key={item.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item)}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer group transition-colors"
                 onClick={() => addToTimeline(item)}
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer group transition-colors"
               >
-                {/* Thumbnail */}
-                <div
-                  className={`w-12 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden bg-gradient-to-br ${typeColor(item.type)}`}
-                >
+                <div className={`w-12 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden bg-gradient-to-br ${typeColor(item.type)}`}>
                   {item.type === 'image' && item.previewUrl ? (
-                    <img
-                      src={item.previewUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-white/80">{typeIcon(item.type)}</span>
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] text-white/70 truncate">{item.name}</p>
                   <p className="text-[9px] text-white/30">
-                    {item.duration.toFixed(1)}s • {item.type.toUpperCase()}
+                    {item.duration.toFixed(1)}s - {item.type.toUpperCase()}
                   </p>
                 </div>
 
-                {/* Add to timeline button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10"
-                  onClick={() => addToTimeline(item)}
-                  title="Añadir al timeline"
-                >
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-white/40 hover:text-white hover:bg-white/10" onClick={(e) => { e.stopPropagation(); addToTimeline(item) }} title="Anadir al timeline">
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
@@ -361,16 +297,8 @@ export function MediaPanel() {
         </div>
       </ScrollArea>
 
-      {/* Upload area */}
       <div className="p-2 border-t border-white/5">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="video/*,image/*,audio/*"
-          className="hidden"
-          onChange={handleFileInput}
-        />
+        <input ref={fileInputRef} type="file" multiple accept="video/*,image/*,audio/*" className="hidden" onChange={handleFileInput} />
       </div>
     </div>
   )

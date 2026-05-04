@@ -14,8 +14,8 @@ export function PreviewCanvas() {
   const isPlaying = useTimelineStore((s) => s.isPlaying)
   const setIsPlaying = useTimelineStore((s) => s.setIsPlaying)
   const setCurrentTime = useTimelineStore((s) => s.setCurrentTime)
-  const rawClips = useTimelineStore((s) => s.clips)
-  const rawTracks = useTimelineStore((s) => s.tracks)
+  const clips = useTimelineStore((s) => s.clips)
+  const tracks = useTimelineStore((s) => s.tracks)
   const getTotalDuration = useTimelineStore((s) => s.getTotalDuration)
   const [volume, setVolume] = useState(80)
   const [isMuted, setIsMuted] = useState(false)
@@ -24,12 +24,13 @@ export function PreviewCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const totalDuration = useTimelineStore(getTotalDuration)
 
-  const clips = Array.isArray(rawClips) ? rawClips.filter(Boolean) : []
-  const tracks = Array.isArray(rawTracks) ? rawTracks.filter(Boolean) : []
+  const getActiveClips = () => {
+    return clips.filter(
+      (c) => currentTime >= c.startTime && currentTime < c.startTime + c.duration
+    )
+  }
 
-  const activeClips = clips.filter(
-    (c) => c && currentTime >= c.startTime && currentTime < c.startTime + c.duration
-  )
+  const activeClips = getActiveClips()
 
   const sortedClips = [...activeClips].sort((a, b) => {
     const order: Record<string, number> = { image: 0, video: 1, text: 2, audio: 3 }
@@ -37,7 +38,7 @@ export function PreviewCanvas() {
   })
 
   const isTrackVisible = (trackId: string) => {
-    const track = tracks.find((t) => t?.id === trackId)
+    const track = tracks.find((t) => t.id === trackId)
     return track ? track.visible && !track.muted : true
   }
 
@@ -63,7 +64,7 @@ export function PreviewCanvas() {
   }, [isPlaying])
 
   const activeVideoClip = sortedClips.find(
-    (c) => c && c.type === 'video' && isTrackVisible(c.trackId) && c.previewUrl
+    (c) => c.type === 'video' && isTrackVisible(c.trackId) && c.previewUrl
   )
 
   const formatTime = (seconds: number) => {
@@ -109,7 +110,7 @@ export function PreviewCanvas() {
         )}
 
         {sortedClips
-          .filter((c) => c && c.type === 'image' && c.previewUrl && isTrackVisible(c.trackId))
+          .filter((c) => c.type === 'image' && c.previewUrl && isTrackVisible(c.trackId))
           .map((clip) => (
             <div
               key={clip.id}
@@ -131,7 +132,7 @@ export function PreviewCanvas() {
           ))}
 
         {sortedClips
-          .filter((c) => c && c.type === 'text' && c.text && isTrackVisible(c.trackId))
+          .filter((c) => c.type === 'text' && c.text && isTrackVisible(c.trackId))
           .map((clip) => (
             <div
               key={clip.id}
@@ -165,7 +166,7 @@ export function PreviewCanvas() {
               </svg>
             </div>
             <p className="text-sm text-white/30">Vista previa</p>
-            <p className="text-xs text-white/15 mt-1">Añade clips al timeline para ver el resultado</p>
+            <p className="text-xs text-white/15 mt-1">Agrega clips al timeline para ver el resultado</p>
           </div>
         )}
 
@@ -173,10 +174,10 @@ export function PreviewCanvas() {
           {formatTime(currentTime)}
         </div>
 
-        {sortedClips.filter((c) => c && c.type !== 'audio').length > 0 && (
+        {sortedClips.filter((c) => c.type !== 'audio').length > 0 && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1">
             {sortedClips
-              .filter((c) => c && c.type !== 'audio')
+              .filter((c) => c.type !== 'audio')
               .map((clip) => (
                 <span
                   key={clip.id}
@@ -213,28 +214,13 @@ export function PreviewCanvas() {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-              onClick={() => setCurrentTime(Math.max(0, currentTime - 1))}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.max(0, currentTime - 1))}>
               <SkipBack className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-500/20"
-              onClick={() => setIsPlaying(!isPlaying)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-500/20" onClick={() => setIsPlaying(!isPlaying)}>
               {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
-              onClick={() => setCurrentTime(Math.min(totalDuration, currentTime + 1))}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10" onClick={() => setCurrentTime(Math.min(totalDuration, currentTime + 1))}>
               <SkipForward className="h-3.5 w-3.5" />
             </Button>
             <span className="text-[10px] text-white/40 font-mono ml-2">
@@ -243,30 +229,13 @@ export function PreviewCanvas() {
           </div>
 
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
-              onClick={() => setIsMuted(!isMuted)}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => setIsMuted(!isMuted)}>
               {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
             </Button>
             {!isMuted && (
-              <Slider
-                value={[volume]}
-                onValueChange={(v) => setVolume(v[0])}
-                max={100}
-                min={0}
-                step={1}
-                className="w-16"
-              />
+              <Slider value={[volume]} onValueChange={(v) => setVolume(v[0])} max={100} min={0} step={1} className="w-16" />
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10"
-              onClick={toggleFullscreen}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
             </Button>
           </div>
