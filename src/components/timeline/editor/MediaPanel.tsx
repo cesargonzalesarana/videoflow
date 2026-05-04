@@ -25,6 +25,7 @@ interface MediaItem {
 export function MediaPanel() {
   const addClip = useTimelineStore((s) => s.addClip)
   const tracks = useTimelineStore((s) => s.tracks)
+  const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddText, setShowAddText] = useState(false)
@@ -149,7 +150,20 @@ export function MediaPanel() {
       filter: 'none',
     })
     toast.success(`"${item.name}" anadido al timeline`)
-    useTimelineStore.getState().setSelectedClipId(clipId)
+    setSelectedClipId(clipId)
+  }
+
+  const handleItemClick = (item: MediaItem) => {
+    const state = useTimelineStore.getState()
+    const existingClip = state.clips.find(
+      (c) => c.name === item.name && c.type === item.type
+    )
+    if (existingClip) {
+      setSelectedClipId(existingClip.id)
+      toast.success(`"${item.name}" seleccionado`)
+    } else {
+      addToTimeline(item)
+    }
   }
 
   const handleDragStart = (e: React.DragEvent, item: MediaItem) => {
@@ -270,7 +284,7 @@ export function MediaPanel() {
                 key={item.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item)}
-                onClick={() => addToTimeline(item)}
+                onClick={() => handleItemClick(item)}
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer group transition-colors"
               >
                 <div className={`w-12 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden bg-gradient-to-br ${typeColor(item.type)}`}>
