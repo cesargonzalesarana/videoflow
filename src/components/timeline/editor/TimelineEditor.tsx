@@ -14,7 +14,7 @@ import { useAppStore } from '@/lib/store'
 import {
   ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
   ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
-  Plus, Volume2, VolumeX
+  Plus, Volume2, VolumeX, ArrowLeft
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportWithAudio } from './exportWithAudio'
@@ -113,11 +113,20 @@ export function TimelineEditor() {
     await exportWithAudio(clips, audioEnabled, setProcessing, setProcessingProgress)
   }
 
+  const handleGoBack = () => {
+    useAppStore.getState().setView('dashboard')
+  }
+
   return (
     <div className="h-full w-full flex flex-col bg-[#080818] select-none" onWheel={handleWheel}>
       {/* TOP TOOLBAR */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a1f] flex-shrink-0">
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-white/50 hover:text-white hover:bg-white/10" onClick={handleGoBack} title="Volver al menu">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Volver
+          </Button>
+          <div className="w-px h-5 bg-white/10" />
           <h2 className="text-sm font-semibold text-white/80 flex items-center gap-2">
             <Film className="h-4 w-4 text-purple-400" />
             Editor de Timeline
@@ -239,38 +248,4 @@ export function TimelineEditor() {
 
                 {/* Track rows */}
                 {(tracks || []).map((track) => (
-                  <TimelineTrack key={track.id} track={track} />
-                ))}
-
-                {/* Playhead: red vertical line */}
-                <Playhead />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Properties Panel */}
-        <div className="w-[260px] flex-shrink-0 border-l border-white/5 overflow-hidden">
-          <PropertiesPanel />
-        </div>
-      </div>
-
-      {/* BOTTOM BAR */}
-      <div className="flex items-center justify-between px-4 py-1 border-t border-white/5 bg-[#0a0a1f] flex-shrink-0">
-        <span className="text-[9px] text-white/20">
-          Exporta en WebM | Compatible con YouTube, Instagram, TikTok, Facebook
-        </span>
-        <span className="text-[9px] text-white/20">
-          Espacio = Play/Pausa | Flechas = Navegar | Supr = Eliminar clip
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  const ms = Math.floor((seconds % 1) * 10)
-  return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0') + '.' + ms
-}
+                  <TimelineTrack key={track.id}
