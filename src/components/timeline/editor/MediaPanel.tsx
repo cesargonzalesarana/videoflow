@@ -212,15 +212,19 @@ export function MediaPanel() {
       <div className="p-3 border-b border-white/5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white/80">Biblioteca de Medios</h3>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white/80" onClick={() => setShowAddText(!showAddText)} title="Anadir texto">
-              <Type className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white/80" onClick={() => fileInputRef.current?.click()} title="Subir archivo">
-              <Upload className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/50 hover:text-white/80" onClick={() => setShowAddText(!showAddText)} title="Anadir texto">
+            <Type className="h-3.5 w-3.5" />
+          </Button>
         </div>
+
+        {/* Big upload button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full py-3 mb-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-lg shadow-violet-500/20"
+        >
+          <Upload className="h-4 w-4" />
+          Subir Archivos
+        </button>
 
         {showAddText && (
           <div className="space-y-2 mb-3 p-2 rounded-lg bg-white/5 border border-white/10">
