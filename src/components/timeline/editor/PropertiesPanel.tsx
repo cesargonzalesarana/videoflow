@@ -1,205 +1,186 @@
 'use client'
 
+import React from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
+import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Trash2, Copy, Scissors, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function PropertiesPanel() {
-  const store = useTimelineStore()
+  const selectedClipId = useTimelineStore((s) => s.selectedClipId)
+  const clips = useTimelineStore((s) => s.clips)
+  const updateClip = useTimelineStore((s) => s.updateClip)
+  const removeClip = useTimelineStore((s) => s.removeClip)
+  const splitClip = useTimelineStore((s) => s.splitClip)
+  const duplicateClip = useTimelineStore((s) => s.duplicateClip)
 
-  // ✅ GUARD: leer tracks con null-safe
-  const rawTracks = store.tracks
+  const clip = clips.find((c) => c.id === selectedClipId)
 
-  const selectedClip = (() => {
-    try {
-      if (!Array.isArray(rawTracks)) return undefined
-      return rawTracks
-        .filter((t) => t != null && Array.isArray(t.clips))
-        .flatMap((t) => t.clips.filter((c) => c != null))
-        .find((c) => c.id === store.selectedClipId)
-    } catch {
-      return undefined
-    }
-  })()
+  const update = (updates: Record<string, unknown>) => {
+    if (!clip) return
+    updateClip(clip.id, updates)
+  }
 
-  if (!selectedClip) {
+  if (!clip) {
     return (
-      <div className="w-56 flex-shrink-0 bg-[#16162a] border-l border-[#2a2a4a] flex flex-col">
-        <div className="p-3 border-b border-[#2a2a4a]">
-          <h2 className="text-sm font-semibold text-gray-200">Propiedades</h2>
+      <div className="w-full h-full flex flex-col bg-[#0a0a1f]">
+        <div className="p-3 border-b border-white/5">
+          <h3 className="text-sm font-semibold text-white/80">Propiedades</h3>
         </div>
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-[11px] text-gray-500 text-center">
-            Selecciona un clip para ver sus propiedades
-          </p>
+          <div className="text-center">
+            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mx-auto mb-2">
+              <Scissors className="h-4 w-4 text-white/20" />
+            </div>
+            <p className="text-xs text-white/30">Selecciona un clip para ver sus propiedades</p>
+          </div>
         </div>
       </div>
     )
   }
 
-  const updateClip = store.updateClip
-  const removeClip = store.removeClip
-  const splitClip = store.splitClip
-  const duplicateClip = store.duplicateClip
-
   return (
-    <div className="w-56 flex-shrink-0 bg-[#16162a] border-l border-[#2a2a4a] flex flex-col overflow-hidden">
-      <div className="p-3 border-b border-[#2a2a4a]">
-        <h2 className="text-sm font-semibold text-gray-200">Propiedades</h2>
+    <div className="w-full h-full flex flex-col bg-[#0a0a1f]">
+      {/* Header */}
+      <div className="p-3 border-b border-white/5 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-white/80">Propiedades</h3>
+            <p className="text-[10px] text-white/40 mt-0.5">{clip.type.toUpperCase()} - {clip.name}</p>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => duplicateClip(clip.id)} title="Duplicar">
+              <Copy className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10" onClick={() => { splitClip(clip.id, clip.startTime + clip.duration / 2); toast.success('Clip dividido') }} title="Dividir">
+              <Scissors className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400/50 hover:text-red-400 hover:bg-red-400/10" onClick={() => { removeClip(clip.id); toast.success('Clip eliminado') }} title="Eliminar">
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Nombre</label>
-          <input
-            value={selectedClip.name || ''}
-            onChange={(e) => updateClip(selectedClip.id, { name: e.target.value })}
-            className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-          />
-        </div>
 
-        <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Tipo</label>
-          <div className="mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-gray-300">
-            {selectedClip.type === 'video' ? '🎬 Video' : selectedClip.type === 'audio' ? '🔊 Audio' : selectedClip.type === 'text' ? '📝 Texto' : '🖼️ Imagen'}
+      {/* Content with native scroll instead of ScrollArea */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-3 space-y-4">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-white/50 uppercase tracking-wider">Nombre</Label>
+            <Input value={clip.name} onChange={(e) => update({ name: e.target.value })} className="h-8 text-xs bg-white/5 border-white/10 text-white" />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Inicio (s)</label>
-            <input
-              type="number"
-              value={(selectedClip.startTime || 0).toFixed(2)}
-              onChange={(e) => updateClip(selectedClip.id, { startTime: Number(e.target.value) })}
-              step="0.1"
-              className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-gray-500 uppercase tracking-wider">Duracion (s)</label>
-            <input
-              type="number"
-              value={(selectedClip.duration || 0).toFixed(2)}
-              onChange={(e) => updateClip(selectedClip.id, { duration: Math.max(0.1, Number(e.target.value)) })}
-              step="0.1"
-              className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Volumen: {Math.round((selectedClip.volume ?? 1) * 100)}%</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={selectedClip.volume ?? 1}
-            onChange={(e) => updateClip(selectedClip.id, { volume: Number(e.target.value) })}
-            className="w-full mt-1 accent-purple-500"
-          />
-        </div>
-
-        <div>
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Opacidad: {Math.round((selectedClip.opacity ?? 1) * 100)}%</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={selectedClip.opacity ?? 1}
-            onChange={(e) => updateClip(selectedClip.id, { opacity: Number(e.target.value) })}
-            className="w-full mt-1 accent-purple-500"
-          />
-        </div>
-
-        <div className="border-t border-[#2a2a4a] pt-3">
-          <label className="text-[10px] text-gray-500 uppercase tracking-wider">Transiciones</label>
-          <div className="mt-2 space-y-2">
-            <div>
-              <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                <span>Fade In</span>
-                <span>{(selectedClip.fadeIn ?? 0).toFixed(1)}s</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="3"
-                step="0.1"
-                value={selectedClip.fadeIn ?? 0}
-                onChange={(e) => updateClip(selectedClip.id, { fadeIn: Number(e.target.value) })}
-                className="w-full accent-green-500"
-              />
-            </div>
-            <div>
-              <div className="flex justify-between text-[10px] text-gray-400 mb-1">
-                <span>Fade Out</span>
-                <span>{(selectedClip.fadeOut ?? 0).toFixed(1)}s</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="3"
-                step="0.1"
-                value={selectedClip.fadeOut ?? 0}
-                onChange={(e) => updateClip(selectedClip.id, { fadeOut: Number(e.target.value) })}
-                className="w-full accent-orange-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {selectedClip.type === 'text' && (
-          <div className="border-t border-[#2a2a4a] pt-3">
-            <div>
-              <label className="text-[10px] text-gray-500 uppercase tracking-wider">Texto</label>
-              <textarea
-                value={selectedClip.text || ''}
-                onChange={(e) => updateClip(selectedClip.id, { text: e.target.value })}
-                rows={3}
-                className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none resize-none"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
+          {/* Timing */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-white/50 uppercase tracking-wider">Tiempo</Label>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Tamaño</label>
-                <input
-                  type="number"
-                  value={selectedClip.fontSize ?? 32}
-                  onChange={(e) => updateClip(selectedClip.id, { fontSize: Number(e.target.value) })}
-                  className="w-full mt-1 px-2 py-1 text-xs bg-[#1a1a3a] border border-[#2a2a4a] rounded text-white focus:border-purple-500 focus:outline-none"
-                />
+                <Label className="text-[9px] text-white/30">Inicio (s)</Label>
+                <Input type="number" value={clip.startTime.toFixed(1)} onChange={(e) => update({ startTime: Math.max(0, parseFloat(e.target.value) || 0) })} className="h-7 text-xs bg-white/5 border-white/10 text-white" step={0.1} min={0} />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Color</label>
-                <input
-                  type="color"
-                  value={selectedClip.color ?? '#ffffff'}
-                  onChange={(e) => updateClip(selectedClip.id, { color: e.target.value })}
-                  className="w-full mt-1 h-7 bg-[#1a1a3a] border border-[#2a2a4a] rounded cursor-pointer"
-                />
+                <Label className="text-[9px] text-white/30">Duracion (s)</Label>
+                <Input type="number" value={clip.duration.toFixed(1)} onChange={(e) => update({ duration: Math.max(0.5, parseFloat(e.target.value) || 0.5) })} className="h-7 text-xs bg-white/5 border-white/10 text-white" step={0.1} min={0.5} />
               </div>
             </div>
           </div>
-        )}
 
-        <div className="border-t border-[#2a2a4a] pt-3 space-y-2">
-          <button
-            onClick={() => splitClip(selectedClip.id)}
-            className="w-full py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
-          >
-            ✂️ Cortar en playhead (S)
-          </button>
-          <button
-            onClick={() => duplicateClip(selectedClip.id)}
-            className="w-full py-2 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
-          >
-            📋 Duplicar (Ctrl+D)
-          </button>
-          <button
-            onClick={() => removeClip(selectedClip.id)}
-            className="w-full py-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1"
-          >
-            🗑️ Eliminar (Del)
-          </button>
+          {/* Volume */}
+          {(clip.type === 'video' || clip.type === 'audio') && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-white/50 uppercase tracking-wider">Volumen</Label>
+              <div className="flex items-center gap-2">
+                <Slider value={[clip.volume]} onValueChange={(v) => update({ volume: v[0] })} max={200} min={0} step={1} className="flex-1" />
+                <span className="text-[10px] text-white/50 font-mono w-8 text-right">{clip.volume}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Opacity */}
+          {(clip.type === 'video' || clip.type === 'image' || clip.type === 'text') && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-white/50 uppercase tracking-wider">Opacidad</Label>
+              <div className="flex items-center gap-2">
+                <Slider value={[clip.opacity]} onValueChange={(v) => update({ opacity: v[0] })} max={100} min={0} step={1} className="flex-1" />
+                <span className="text-[10px] text-white/50 font-mono w-8 text-right">{clip.opacity}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Scale */}
+          {(clip.type === 'video' || clip.type === 'image') && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-white/50 uppercase tracking-wider">Escala</Label>
+              <div className="flex items-center gap-2">
+                <Slider value={[clip.scale]} onValueChange={(v) => update({ scale: v[0] })} max={200} min={10} step={1} className="flex-1" />
+                <span className="text-[10px] text-white/50 font-mono w-8 text-right">{clip.scale}%</span>
+              </div>
+            </div>
+          )}
+
+          {/* Text */}
+          {clip.type === 'text' && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-white/50 uppercase tracking-wider">Contenido del Texto</Label>
+              <Textarea value={clip.text || ''} onChange={(e) => update({ text: e.target.value })} className="min-h-[60px] text-xs bg-white/5 border-white/10 text-white" rows={3} />
+            </div>
+          )}
+
+          {/* Transition */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-white/50 uppercase tracking-wider">Transicion</Label>
+            <Select value={clip.transition} onValueChange={(v) => update({ transition: v })}>
+              <SelectTrigger className="h-8 text-xs bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ninguna</SelectItem>
+                <SelectItem value="fade">Fade</SelectItem>
+                <SelectItem value="slide-left">Deslizar Izquierda</SelectItem>
+                <SelectItem value="slide-right">Deslizar Derecha</SelectItem>
+                <SelectItem value="dissolve">Disolver</SelectItem>
+                <SelectItem value="zoom-in">Zoom In</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filter */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-white/50 uppercase tracking-wider">Filtro</Label>
+            <Select value={clip.filter} onValueChange={(v) => update({ filter: v })}>
+              <SelectTrigger className="h-8 text-xs bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ninguno</SelectItem>
+                <SelectItem value="grayscale">Escala de Grises</SelectItem>
+                <SelectItem value="sepia">Sepia</SelectItem>
+                <SelectItem value="blur">Desenfoque</SelectItem>
+                <SelectItem value="brightness-up">Brillo+</SelectItem>
+                <SelectItem value="contrast-up">Contraste+</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Reset */}
+          <div className="pt-2 border-t border-white/5">
+            <Button variant="ghost" size="sm" className="w-full text-xs text-white/40 hover:text-white/60" onClick={() => { update({ volume: 100, opacity: 100, scale: 100, positionX: 50, positionY: 50, transition: 'none', filter: 'none' }); toast.success('Propiedades reiniciadas') }}>
+              <RotateCcw className="h-3 w-3 mr-1.5" />
+              Reiniciar Propiedades
+            </Button>
+          </div>
         </div>
       </div>
     </div>
