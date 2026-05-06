@@ -121,7 +121,7 @@ export function MediaPanel() {
       ? matchingTracks.reduce((best, track) => {
           const trackClips = useTimelineStore.getState().clips.filter((c) => c.trackId === track.id)
           const bestClips = useTimelineStore.getState().clips.filter((c) => c.trackId === best.id)
-          return trackClips.length <= bestClips.length ? track : best
+          return trackClips.length < bestClips.length ? track : best
         })
       : tracks[0]
     if (!targetTrack) {
