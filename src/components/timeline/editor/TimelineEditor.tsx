@@ -8,6 +8,7 @@ import { Playhead } from './Playhead'
 import { MediaPanel, MediaPanelRef } from './MediaPanel'
 import { PropertiesPanel } from './PropertiesPanel'
 import { PreviewCanvas } from './PreviewCanvas'
+import { PublishDialog } from './PublishDialog'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +23,7 @@ import {
 import {
   ZoomIn, ZoomOut, Download, Loader2, Trash2, Film,
   ArrowLeftToLine, ArrowRightToLine, ChevronLeft, ChevronRight,
-  Plus, Volume2, VolumeX, ArrowLeft, Save, FolderOpen, TrashIcon
+  Plus, Volume2, VolumeX, ArrowLeft, Save, FolderOpen, TrashIcon, Send
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportWithAudio } from './exportWithAudio'
@@ -50,6 +51,7 @@ export function TimelineEditor() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [savedProjects, setSavedProjects] = useState<ProjectInfo[]>([])
   const [loadingProject, setLoadingProject] = useState(false)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
 
   const totalDuration = useTimelineStore(getTotalDuration)
 
@@ -236,6 +238,17 @@ export function TimelineEditor() {
             <FolderOpen className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Abrir</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white"
+            onClick={() => setPublishDialogOpen(true)}
+            disabled={clips.length === 0}
+            title="Publicar en redes"
+          >
+            <Send className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Publicar</span>
+          </Button>
         </div>
 
         <div className="flex items-center gap-1">
@@ -359,6 +372,8 @@ export function TimelineEditor() {
           Espacio = Play/Pausa | Flechas = Navegar | Supr = Eliminar clip
         </span>
       </div>
+
+      <PublishDialog open={publishDialogOpen} onClose={() => setPublishDialogOpen(false)} clipCount={clips.length} />
 
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent className="bg-[#0e0e24] border-white/10 text-white sm:max-w-[480px]">
