@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useTimelineStore } from '@/lib/timeline-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,12 @@ interface MediaItem {
   text?: string
 }
 
-export function MediaPanel() {
+export interface MediaPanelRef {
+  loadMediaItems: (items: MediaItem[]) => void
+  getMediaItems: () => MediaItem[]
+}
+
+export const MediaPanel = forwardRef<MediaPanelRef>(function MediaPanel(_props, ref) {
   const addClip = useTimelineStore((s) => s.addClip)
   const tracks = useTimelineStore((s) => s.tracks)
   const setSelectedClipId = useTimelineStore((s) => s.setSelectedClipId)
@@ -33,6 +38,13 @@ export function MediaPanel() {
   const [textDuration, setTextDuration] = useState(3)
   const [activeTab, setActiveTab] = useState<'all' | 'video' | 'audio' | 'image' | 'text'>('all')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    loadMediaItems: (items: MediaItem[]) => {
+      setMediaItems(items)
+    },
+    getMediaItems: () => mediaItems,
+  }), [mediaItems])
 
   const processFiles = useCallback(
     (files: File[]) => {
@@ -326,4 +338,4 @@ export function MediaPanel() {
       </div>
     </div>
   )
-}
+})

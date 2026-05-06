@@ -65,6 +65,9 @@ interface TimelineState {
   setSelectedClipId: (id: string | null) => void
   setScrollX: (x: number) => void
 
+  setTracks: (tracks: TimelineTrackData[]) => void
+  setClips: (clips: TimelineClipData[]) => void
+
   initializeDefaultTracks: () => void
   clearAll: () => void
   getClipsOnTrack: (trackId: string) => TimelineClipData[]
@@ -177,6 +180,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   setZoom: (zoom) => set({ zoom: Math.max(20, Math.min(300, zoom)) }),
   setSelectedClipId: (id) => set({ selectedClipId: id }),
   setScrollX: (x) => set({ scrollX: x }),
+
+  setTracks: (newTracks) => set({ tracks: newTracks }),
+  setClips: (newClips) => set({ clips: newClips }),
 
   initializeDefaultTracks: () => {
     const { tracks } = get()
