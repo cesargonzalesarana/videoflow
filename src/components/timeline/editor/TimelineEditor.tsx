@@ -201,11 +201,11 @@ export function TimelineEditor() {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-4 pt-4 pb-2" style={{ flex: '0 0 45%', minHeight: '150px' }}>
+          <div className="px-4 pt-3 pb-1" style={{ flex: '3 1 0', minHeight: '150px' }}>
             <PreviewCanvas />
           </div>
 
-          <div className="flex-1 flex flex-col border-t border-white/5 min-h-0">
+          <div className="flex flex-col border-t border-white/5 min-h-[100px]" style={{ flex: '2 1 0' }}>
             <div className="flex items-center justify-between px-3 py-1 bg-[#0a0a1f] border-b border-white/5 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Timeline</span>
