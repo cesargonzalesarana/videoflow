@@ -116,7 +116,14 @@ export function MediaPanel() {
   }
 
   const addToTimeline = (item: MediaItem) => {
-    const targetTrack = tracks.find((t) => t.type === item.type) || tracks[0]
+    const matchingTracks = tracks.filter((t) => t.type === item.type)
+    const targetTrack = matchingTracks.length > 0
+      ? matchingTracks.reduce((best, track) => {
+          const trackClips = useTimelineStore.getState().clips.filter((c) => c.trackId === track.id)
+          const bestClips = useTimelineStore.getState().clips.filter((c) => c.trackId === best.id)
+          return trackClips.length <= bestClips.length ? track : best
+        })
+      : tracks[0]
     if (!targetTrack) {
       toast.error('No hay pistas disponibles')
       return
@@ -217,7 +224,6 @@ export function MediaPanel() {
           </Button>
         </div>
 
-        {/* Big upload button */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="w-full py-3 mb-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-lg shadow-violet-500/20"
