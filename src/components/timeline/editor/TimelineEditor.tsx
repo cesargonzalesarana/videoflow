@@ -201,7 +201,7 @@ export function TimelineEditor() {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="p-4 flex-shrink-0">
+          <div className="p-4" style={{ flex: '0 0 35%', minHeight: '150px' }}>
             <PreviewCanvas />
           </div>
 
