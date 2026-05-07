@@ -35,6 +35,26 @@ interface YouTubeChannel {
   thumbnail?: string
 }
 
+interface FacebookPage {
+  id: string
+  name: string
+  access_token: string
+  category: string
+}
+
+interface InstagramAccount {
+  id: string
+  username: string
+  name: string
+  pageId: string
+}
+
+interface MetaUserInfo {
+  name: string
+  facebookPages: FacebookPage[]
+  instagramAccounts: InstagramAccount[]
+}
+
 const PLATFORMS: PlatformOption[] = [
   { id: 'youtube', name: 'YouTube', icon: <Youtube className="h-4 w-4" />, color: 'text-red-400' },
   { id: 'tiktok', name: 'TikTok', icon: <Play className="h-4 w-4" />, color: 'text-pink-400' },
@@ -59,50 +79,63 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
   const [youtubeConnected, setYoutubeConnected] = useState(false)
   const [youtubeChannel, setYoutubeChannel] = useState<YouTubeChannel | null>(null)
   const [youtubeLoading, setYoutubeLoading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<string>('')
-  const [uploadedVideo, setUploadedVideo] = useState<{ id: string; url: string; title: string } | null>(null)
+  const [uploadProgress, setUploadProgress] = useState('')
+  const [uploadedVideos, setUploadedVideos] = useState<{ platform: string; id: string; url: string; title: string }[]>([])
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ─── Verificar estado de YouTube al abrir ────────────────────────
+  // ─── Meta states ─────────────────────────────────────────────────
+  const [metaConnected, setMetaConnected] = useState(false)
+  const [metaLoading, setMetaLoading] = useState(false)
+  const [metaInfo, setMetaInfo] = useState<MetaUserInfo | null>(null)
+  const [selectedPageId, setSelectedPageId] = useState('')
+
+  // ─── Verificar estados al abrir ──────────────────────────────────
   useEffect(() => {
     if (open) {
       checkYouTubeStatus()
-      // Detectar youtube_connected de la URL
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('youtube_connected') === 'true') {
-        toast.success('Cuenta de YouTube conectada exitosamente')
-        // Limpiar param de la URL sin recargar
-        const url = new URL(window.location.href)
-        url.searchParams.delete('youtube_connected')
-        window.history.replaceState({}, '', url.toString())
-        checkYouTubeStatus()
-      }
-      if (params.get('youtube_error')) {
-        toast.error('Error al conectar YouTube: ' + params.get('youtube_error'))
-        const url = new URL(window.location.href)
-        url.searchParams.delete('youtube_error')
-        window.history.replaceState({}, '', url.toString())
-      }
+      checkMetaStatus()
+      checkUrlParams()
     } else {
-      // Reset al cerrar
-      setUploadedVideo(null)
+      setUploadedVideos([])
       setUploadProgress('')
       setPublishing(false)
     }
   }, [open])
 
+  const checkUrlParams = () => {
+    const params = new URLSearchParams(window.location.search)
+    const url = new URL(window.location.href)
+
+    if (params.get('youtube_connected') === 'true') {
+      toast.success('Cuenta de YouTube conectada exitosamente')
+      url.searchParams.delete('youtube_connected')
+      checkYouTubeStatus()
+    }
+    if (params.get('youtube_error')) {
+      toast.error('Error al conectar YouTube: ' + params.get('youtube_error'))
+      url.searchParams.delete('youtube_error')
+    }
+    if (params.get('meta_connected') === 'true') {
+      toast.success('Cuenta de Meta conectada exitosamente')
+      url.searchParams.delete('meta_connected')
+      checkMetaStatus()
+    }
+    if (params.get('meta_error')) {
+      toast.error('Error al conectar Meta: ' + params.get('meta_error'))
+      url.searchParams.delete('meta_error')
+    }
+    window.history.replaceState({}, '', url.toString())
+  }
+
+  // ─── YouTube: verificar estado ───────────────────────────────────
   const checkYouTubeStatus = async () => {
     try {
       setYoutubeLoading(true)
       const res = await fetch('/api/youtube/auth?action=status')
       const data = await res.json()
       setYoutubeConnected(data.connected)
-      if (data.connected && data.channel) {
-        setYoutubeChannel(data.channel)
-      } else {
-        setYoutubeChannel(null)
-      }
+      setYoutubeChannel(data.connected ? data.channel : null)
     } catch {
       setYoutubeConnected(false)
       setYoutubeChannel(null)
@@ -111,14 +144,13 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
-  // ─── Conectar YouTube ────────────────────────────────────────────
+  // ─── YouTube: conectar ───────────────────────────────────────────
   const handleConnectYouTube = async () => {
     try {
       setYoutubeLoading(true)
       const res = await fetch('/api/youtube/auth?action=authorize')
       const data = await res.json()
       if (data.url) {
-        // Abrir en nueva pestaña
         window.open(data.url, '_blank', 'width=600,height=700')
         toast.info('Autoriza tu cuenta de YouTube en la ventana que se abrio')
       }
@@ -129,7 +161,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
-  // ─── Desconectar YouTube ─────────────────────────────────────────
+  // ─── YouTube: desconectar ────────────────────────────────────────
   const handleDisconnectYouTube = async () => {
     if (!window.confirm('Desconectar tu cuenta de YouTube?')) return
     try {
@@ -143,25 +175,76 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
+  // ─── Meta: verificar estado ──────────────────────────────────────
+  const checkMetaStatus = async () => {
+    try {
+      setMetaLoading(true)
+      const res = await fetch('/api/meta/auth?action=status')
+      const data = await res.json()
+      setMetaConnected(data.connected)
+      if (data.connected && data.user) {
+        setMetaInfo(data.user)
+        // Auto-seleccionar primera pagina si no hay seleccion
+        if (data.user.facebookPages?.length > 0 && !selectedPageId) {
+          setSelectedPageId(data.user.facebookPages[0].id)
+        }
+      } else {
+        setMetaInfo(null)
+        setSelectedPageId('')
+      }
+    } catch {
+      setMetaConnected(false)
+      setMetaInfo(null)
+    } finally {
+      setMetaLoading(false)
+    }
+  }
+
+  // ─── Meta: conectar ──────────────────────────────────────────────
+  const handleConnectMeta = async () => {
+    try {
+      setMetaLoading(true)
+      const res = await fetch('/api/meta/auth?action=authorize')
+      const data = await res.json()
+      if (data.url) {
+        window.open(data.url, '_blank', 'width=600,height=700')
+        toast.info('Autoriza tu cuenta de Facebook/Instagram en la ventana que se abrio')
+      }
+    } catch {
+      toast.error('Error al iniciar conexion con Meta')
+    } finally {
+      setMetaLoading(false)
+    }
+  }
+
+  // ─── Meta: desconectar ───────────────────────────────────────────
+  const handleDisconnectMeta = async () => {
+    if (!window.confirm('Desconectar tus cuentas de Facebook e Instagram?')) return
+    try {
+      await fetch('/api/meta/disconnect', { method: 'POST' })
+      setMetaConnected(false)
+      setMetaInfo(null)
+      setSelectedPageId('')
+      setSelectedPlatforms((prev) => prev.filter((p) => p !== 'facebook' && p !== 'instagram'))
+      toast.success('Cuentas de Meta desconectadas')
+    } catch {
+      toast.error('Error al desconectar Meta')
+    }
+  }
+
   // ─── Seleccionar archivo de video ────────────────────────────────
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Validar que sea video
     if (!file.type.startsWith('video/')) {
       toast.error('Selecciona un archivo de video valido')
       return
     }
-
-    // Validar tamano (max 128GB)
     if (file.size > 128 * 1024 * 1024 * 1024) {
       toast.error('El archivo excede el limite de 128GB')
       return
     }
-
     setSelectedFile(file)
-    // Auto-llenar titulo si esta vacio
     if (!title.trim()) {
       setTitle(file.name.replace(/\.[^/.]+$/, ''))
     }
@@ -173,6 +256,18 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
   const togglePlatform = (id: string) => {
     if (id === 'youtube' && !youtubeConnected) {
       toast.info('Primero conecta tu cuenta de YouTube')
+      return
+    }
+    if (id === 'facebook' && !metaConnected) {
+      toast.info('Primero conecta tu cuenta de Meta (Facebook)')
+      return
+    }
+    if (id === 'instagram' && !metaConnected) {
+      toast.info('Primero conecta tu cuenta de Meta (Instagram)')
+      return
+    }
+    if (id === 'instagram' && metaConnected && (!metaInfo?.instagramAccounts || metaInfo.instagramAccounts.length === 0)) {
+      toast.info('No se encontro cuenta de Instagram profesional. Necesitas una cuenta Business o Creator vinculada a una Pagina de Facebook.')
       return
     }
     setSelectedPlatforms((prev) =>
@@ -190,72 +285,113 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       return
     }
 
-    // ─── YouTube: subir video real ────────────────────────────────
-    if (mode === 'now' && selectedPlatforms.includes('youtube')) {
-      if (!selectedFile) {
+    if (mode === 'now') {
+      if (selectedPlatforms.includes('youtube') && !selectedFile) {
         toast.error('Selecciona un archivo de video para subir a YouTube')
+        return
+      }
+      if (selectedPlatforms.includes('facebook') && !selectedFile) {
+        toast.error('Selecciona un archivo de video para subir a Facebook')
+        return
+      }
+      if (selectedPlatforms.includes('instagram') && !selectedFile) {
+        toast.error('Selecciona un archivo de video para subir a Instagram')
         return
       }
 
       setPublishing(true)
-      setUploadProgress('Preparando video...')
-      setUploadedVideo(null)
+      const remainingPlatforms = [...selectedPlatforms]
 
-      try {
-        const formData = new FormData()
-        formData.append('video', selectedFile)
-        formData.append('title', title)
-        formData.append('description', description)
-        formData.append('tags', tags || hashtags)
-        formData.append('privacy', isPublic ? 'public' : 'unlisted')
+      // ─── Subir a YouTube ───────────────────────────────────────
+      if (remainingPlatforms.includes('youtube') && selectedFile) {
+        try {
+          setUploadProgress('Subiendo a YouTube...')
+          const formData = new FormData()
+          formData.append('video', selectedFile)
+          formData.append('title', title)
+          formData.append('description', description)
+          formData.append('tags', tags || hashtags)
+          formData.append('privacy', isPublic ? 'public' : 'unlisted')
 
-        setUploadProgress('Subiendo a YouTube... (puede tardar segun el tamano del video)')
+          const res = await fetch('/api/youtube/upload', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Error al subir a YouTube')
 
-        const res = await fetch('/api/youtube/upload', {
-          method: 'POST',
-          body: formData,
-        })
-
-        const data = await res.json()
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Error al subir el video')
+          setUploadedVideos((prev) => [...prev, { platform: 'YouTube', ...data.video }])
+          toast.success(`Video subido a YouTube`)
+          remainingPlatforms.splice(remainingPlatforms.indexOf('youtube'), 1)
+        } catch (err: any) {
+          toast.error(`YouTube: ${err.message}`)
         }
-
-        setUploadedVideo(data.video)
-        setUploadProgress('')
-        toast.success(`Video subido a YouTube: ${data.video.title}`)
-
-        // Remover YouTube de la lista de pendientes
-        setSelectedPlatforms((prev) => prev.filter((p) => p !== 'youtube'))
-
-        // Si solo era YouTube, cerrar
-        if (selectedPlatforms.length === 1) {
-          setTimeout(() => onClose(), 2000)
-        }
-      } catch (err: any) {
-        setUploadProgress('')
-        toast.error(err.message || 'Error al subir a YouTube')
-      } finally {
-        setPublishing(false)
       }
-      return
-    }
 
-    // ─── Otras plataformas: simulacion visual ─────────────────────
-    if (mode === 'now') {
-      setPublishing(true)
-      await new Promise((r) => setTimeout(r, 1500))
+      // ─── Subir a Facebook ──────────────────────────────────────
+      if (remainingPlatforms.includes('facebook') && selectedFile) {
+        try {
+          setUploadProgress('Subiendo a Facebook...')
+          const formData = new FormData()
+          formData.append('video', selectedFile)
+          formData.append('title', title)
+          formData.append('description', description)
+          formData.append('hashtags', hashtags)
+          formData.append('platform', 'facebook')
+          formData.append('pageId', selectedPageId)
+          formData.append('privacy', isPublic ? 'PUBLIC' : 'PUBLIC')
+
+          const res = await fetch('/api/meta/upload', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Error al subir a Facebook')
+
+          setUploadedVideos((prev) => [...prev, { platform: 'Facebook', id: data.video.id, url: data.video.url, title: data.video.title }])
+          toast.success(`Video subido a Facebook`)
+          remainingPlatforms.splice(remainingPlatforms.indexOf('facebook'), 1)
+        } catch (err: any) {
+          toast.error(`Facebook: ${err.message}`)
+        }
+      }
+
+      // ─── Subir a Instagram ─────────────────────────────────────
+      if (remainingPlatforms.includes('instagram') && selectedFile) {
+        try {
+          setUploadProgress('Subiendo a Instagram (puede tardar)...')
+          const formData = new FormData()
+          formData.append('video', selectedFile)
+          formData.append('title', title)
+          formData.append('description', description)
+          formData.append('hashtags', hashtags)
+          formData.append('platform', 'instagram')
+          formData.append('pageId', selectedPageId)
+
+          const res = await fetch('/api/meta/upload', { method: 'POST', body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Error al subir a Instagram')
+
+          setUploadedVideos((prev) => [...prev, { platform: 'Instagram', id: data.video.id, url: '', title: data.video.title }])
+          toast.success(`Reel publicado en Instagram`)
+          remainingPlatforms.splice(remainingPlatforms.indexOf('instagram'), 1)
+        } catch (err: any) {
+          toast.error(`Instagram: ${err.message}`)
+        }
+      }
+
+      // ─── Plataformas restantes: simulacion ─────────────────────
+      for (const platformId of remainingPlatforms) {
+        await new Promise((r) => setTimeout(r, 500))
+        toast.success(`Publicado en ${platformId} (pronto conexion real)`)
+      }
+
+      setUploadProgress('')
       setPublishing(false)
-      toast.success(`Publicado en ${selectedPlatforms.length} plataforma(s). Pronto se conectara con las redes.`)
-      onClose()
+
+      if (selectedPlatforms.length === 1 && !remainingPlatforms.length) {
+        setTimeout(() => onClose(), 2000)
+      }
     } else {
       // ─── Programar ─────────────────────────────────────────────
       if (!scheduleDate) {
         toast.error('Selecciona una fecha')
         return
       }
-
       setPublishing(true)
       try {
         const scheduledAt = new Date(scheduleDate)
@@ -285,6 +421,28 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
+  // ─── Estado de cada plataforma para las tarjetas ─────────────────
+  const getPlatformStatus = (platformId: string) => {
+    if (platformId === 'youtube') {
+      if (youtubeLoading) return { text: 'Verificando...', connected: null }
+      if (youtubeConnected) return { text: youtubeChannel?.title || 'Conectada', connected: true }
+      return { text: 'Conectar', connected: false }
+    }
+    if (platformId === 'facebook') {
+      if (metaLoading) return { text: 'Verificando...', connected: null }
+      if (metaConnected && metaInfo?.facebookPages?.length) return { text: metaInfo.facebookPages[0].name, connected: true }
+      if (metaConnected) return { text: 'Sin pagina', connected: false }
+      return { text: 'Conectar', connected: false }
+    }
+    if (platformId === 'instagram') {
+      if (metaLoading) return { text: 'Verificando...', connected: null }
+      if (metaConnected && metaInfo?.instagramAccounts?.length) return { text: '@' + metaInfo.instagramAccounts[0].username, connected: true }
+      if (metaConnected) return { text: 'Sin cuenta', connected: false }
+      return { text: 'Conectar', connected: false }
+    }
+    return { text: 'No conectada', connected: false }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -312,7 +470,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
             <div className="grid grid-cols-2 gap-2">
               {PLATFORMS.map((platform) => {
                 const isSelected = selectedPlatforms.includes(platform.id)
-                const isYouTube = platform.id === 'youtube'
+                const status = getPlatformStatus(platform.id)
 
                 return (
                   <button
@@ -330,16 +488,12 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
                         {platform.name}
                       </p>
                       <p className="text-[10px] flex items-center gap-1 mt-0.5">
-                        {isYouTube ? (
-                          youtubeLoading ? (
-                            <><Loader2 className="h-2.5 w-2.5 animate-spin text-white/30" /><span className="text-white/30">Verificando...</span></>
-                          ) : youtubeConnected ? (
-                            <><Link2 className="h-2.5 w-2.5 text-emerald-400" /><span className="text-emerald-400">{youtubeChannel?.title || 'Conectada'}</span></>
-                          ) : (
-                            <><Unlink className="h-2.5 w-2.5 text-amber-400" /><span className="text-amber-400">Conectar</span></>
-                          ) 
+                        {status.connected === null ? (
+                          <><Loader2 className="h-2.5 w-2.5 animate-spin text-white/30" /><span className="text-white/30">{status.text}</span></>
+                        ) : status.connected ? (
+                          <><Link2 className="h-2.5 w-2.5 text-emerald-400" /><span className="text-emerald-400 truncate">{status.text}</span></>
                         ) : (
-                          <><Unlink className="h-2.5 w-2.5 text-white/25" /><span className="text-white/25">No conectada</span></>
+                          <><Unlink className="h-2.5 w-2.5 text-amber-400" /><span className="text-amber-400">{status.text}</span></>
                         )}
                       </p>
                     </div>
@@ -353,50 +507,64 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
               })}
             </div>
 
-            {/* YouTube connect/disconnect buttons */}
-            <div className="flex items-center gap-2 mt-2">
+            {/* Connect buttons */}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {/* YouTube */}
               {!youtubeConnected ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
-                  onClick={handleConnectYouTube}
-                  disabled={youtubeLoading}
-                >
-                  {youtubeLoading ? (
-                    <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</>
-                  ) : (
-                    <><Youtube className="h-3 w-3 mr-1.5" />Conectar YouTube</>
-                  )}
+                <Button variant="ghost" size="sm" className="h-7 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20" onClick={handleConnectYouTube} disabled={youtubeLoading}>
+                  {youtubeLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</> : <><Youtube className="h-3 w-3 mr-1.5" />YouTube</>}
                 </Button>
               ) : (
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-1.5">
                   <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
-                    <Link2 className="h-2.5 w-2.5" />
-                    {youtubeChannel?.title || 'YouTube conectado'}
+                    <Link2 className="h-2.5 w-2.5" />{youtubeChannel?.title || 'YouTube'}
                   </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[10px] text-white/25 hover:text-red-400 hover:bg-red-400/10"
-                    onClick={handleDisconnectYouTube}
-                  >
-                    Desconectar
-                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/20 hover:text-red-400" onClick={handleDisconnectYouTube}>X</Button>
+                </div>
+              )}
+
+              {/* Meta (Facebook + Instagram) */}
+              {!metaConnected ? (
+                <Button variant="ghost" size="sm" className="h-7 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20" onClick={handleConnectMeta} disabled={metaLoading}>
+                  {metaLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</> : <><Facebook className="h-3 w-3 mr-1.5" />Facebook / Instagram</>}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
+                    <Link2 className="h-2.5 w-2.5" />{metaInfo?.name || 'Meta'}
+                  </Badge>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/20 hover:text-red-400" onClick={handleDisconnectMeta}>X</Button>
                 </div>
               )}
             </div>
+
+            {/* Selector de pagina de Facebook */}
+            {metaConnected && metaInfo?.facebookPages && metaInfo.facebookPages.length > 1 && (
+              <div className="p-2 rounded-md bg-white/[0.03] border border-white/5">
+                <Label className="text-white/30 text-[10px]">Pagina de Facebook (Plan Gratuito: 1 pagina)</Label>
+                <select
+                  value={selectedPageId}
+                  onChange={(e) => setSelectedPageId(e.target.value)}
+                  className="w-full h-7 mt-1 rounded bg-white/5 border border-white/10 text-white text-[11px] px-2"
+                >
+                  {metaInfo.facebookPages.map((page) => (
+                    <option key={page.id} value={page.id}>{page.name} ({page.category})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <p className="text-[10px] text-white/25">
-              * Conecta tus cuentas para publicar directamente. TikTok, Instagram y Facebook pronto.
+              * Plan Gratuito: 1 cuenta por red. Plan Pro: multiples cuentas.
             </p>
           </div>
 
-          {/* File selection for YouTube */}
-          {selectedPlatforms.includes('youtube') && mode === 'now' && (
-            <div className="space-y-2 p-3 rounded-lg bg-red-500/[0.05] border border-red-500/10">
+          {/* File selection */}
+          {(selectedPlatforms.includes('youtube') || selectedPlatforms.includes('facebook') || selectedPlatforms.includes('instagram')) && mode === 'now' && (
+            <div className="space-y-2 p-3 rounded-lg bg-purple-500/[0.05] border border-purple-500/10">
               <Label className="text-white/60 text-xs uppercase tracking-wider font-medium flex items-center gap-1.5">
-                <Upload className="h-3.5 w-3.5 text-red-400" />
-                Video para YouTube
+                <Upload className="h-3.5 w-3.5 text-purple-400" />
+                Video para publicar
               </Label>
               {selectedFile ? (
                 <div className="flex items-center gap-2 p-2 rounded-md bg-white/5 border border-white/10">
@@ -404,36 +572,22 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
                     <p className="text-xs text-white/80 truncate">{selectedFile.name}</p>
                     <p className="text-[10px] text-white/30">
                       {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                      {selectedPlatforms.length > 1 && (
+                        <span className="ml-2 text-purple-300">Se usara para: {selectedPlatforms.filter(p => p !== 'tiktok').join(', ')}</span>
+                      )}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[10px] text-white/30 hover:text-white/60"
-                    onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-white/30 hover:text-white/60" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}>
                     Cambiar
                   </Button>
                 </div>
               ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 p-3 rounded-md border border-dashed border-white/15 bg-white/[0.02] hover:bg-white/5 hover:border-white/25 transition-colors"
-                >
+                <button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 p-3 rounded-md border border-dashed border-white/15 bg-white/[0.02] hover:bg-white/5 hover:border-white/25 transition-colors">
                   <Upload className="h-4 w-4 text-white/30" />
                   <span className="text-xs text-white/40">Seleccionar archivo de video</span>
                 </button>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <p className="text-[10px] text-white/20">
-                Selecciona el video exportado (WebM, MP4, MOV, etc.) o cualquier video de tu computadora
-              </p>
+              <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileSelect} className="hidden" />
             </div>
           )}
 
@@ -441,53 +595,29 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-white/60 text-xs uppercase tracking-wider font-medium">Titulo</Label>
-              <Input
-                placeholder="Titulo del video..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20"
-              />
+              <Input placeholder="Titulo del video..." value={title} onChange={(e) => setTitle(e.target.value)} className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/60 text-xs uppercase tracking-wider font-medium">Descripcion</Label>
-              <Textarea
-                placeholder="Describe tu video..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20 min-h-[80px]"
-                rows={3}
-              />
+              <Textarea placeholder="Describe tu video..." value={description} onChange={(e) => setDescription(e.target.value)} className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20 min-h-[80px]" rows={3} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-white/60 text-xs uppercase tracking-wider font-medium">Hashtags</Label>
-              <Input
-                placeholder="#viral #content #video"
-                value={hashtags}
-                onChange={(e) => setHashtags(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20"
-              />
+              <Input placeholder="#viral #content #video" value={hashtags} onChange={(e) => setHashtags(e.target.value)} className="bg-white/5 border-white/10 text-white text-sm placeholder:text-white/20" />
             </div>
           </div>
 
           {/* Advanced */}
           <div className="border-t border-white/5 pt-3">
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
-            >
+            <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors">
               {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               Opciones avanzadas
             </button>
             {showAdvanced && (
               <div className="mt-3 space-y-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <div className="space-y-1.5">
-                  <Label className="text-white/40 text-xs">Tags para YouTube (separados por coma)</Label>
-                  <Input
-                    placeholder="musica, entretenimiento, tutoriales"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white text-xs placeholder:text-white/15"
-                  />
+                  <Label className="text-white/40 text-xs">Tags (separados por coma)</Label>
+                  <Input placeholder="musica, entretenimiento, tutoriales" value={tags} onChange={(e) => setTags(e.target.value)} className="bg-white/5 border-white/10 text-white text-xs placeholder:text-white/15" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-white/40 text-xs">Categoria</Label>
@@ -503,16 +633,8 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="visibility"
-                    className="rounded"
-                    checked={isPublic}
-                    onChange={(e) => setIsPublic(e.target.checked)}
-                  />
-                  <label htmlFor="visibility" className="text-xs text-white/40">
-                    Video publico (si no, se sube como &quot;No listado&quot;)
-                  </label>
+                  <input type="checkbox" id="visibility" className="rounded" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
+                  <label htmlFor="visibility" className="text-xs text-white/40">Video publico (si no, se sube como &quot;No listado&quot; / Privado)</label>
                 </div>
               </div>
             )}
@@ -526,83 +648,55 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
             </div>
           )}
 
-          {/* Uploaded video result */}
-          {uploadedVideo && (
-            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Check className="h-4 w-4 text-emerald-400" />
-                <p className="text-sm font-medium text-emerald-300">Video subido exitosamente</p>
-              </div>
-              <p className="text-xs text-white/60 mb-2">{uploadedVideo.title}</p>
-              <a
-                href={uploadedVideo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Ver en YouTube
-              </a>
+          {/* Uploaded videos results */}
+          {uploadedVideos.length > 0 && (
+            <div className="space-y-2">
+              {uploadedVideos.map((video, i) => (
+                <div key={i} className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <p className="text-xs font-medium text-emerald-300">Subido a {video.platform}</p>
+                  </div>
+                  <p className="text-[10px] text-white/50">{video.title}</p>
+                  {video.url && (
+                    <a href={video.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 mt-1">
+                      <ExternalLink className="h-2.5 w-2.5" />Ver video
+                    </a>
+                  )}
+                  {!video.url && video.platform === 'Instagram' && (
+                    <p className="text-[10px] text-white/30 mt-1">Revisalo en tu perfil de Instagram</p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
           {/* Mode toggle */}
           <div className="border-t border-white/5 pt-4 space-y-3">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setMode('now')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  mode === 'now'
-                    ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/20'
-                    : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'
-                }`}
-              >
-                <Send className="h-3.5 w-3.5" />
-                Publicar Ahora
+              <button onClick={() => setMode('now')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${mode === 'now' ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/20' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'}`}>
+                <Send className="h-3.5 w-3.5" />Publicar Ahora
               </button>
-              <button
-                onClick={() => setMode('schedule')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  mode === 'schedule'
-                    ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/20'
-                    : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'
-                }`}
-              >
-                <CalendarClock className="h-3.5 w-3.5" />
-                Programar
+              <button onClick={() => setMode('schedule')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${mode === 'schedule' ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-500/20' : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'}`}>
+                <CalendarClock className="h-3.5 w-3.5" />Programar
               </button>
             </div>
-
             {mode === 'schedule' && (
               <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <div className="space-y-1.5">
                   <Label className="text-white/40 text-xs">Fecha</Label>
-                  <Input
-                    type="date"
-                    value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white text-xs"
-                  />
+                  <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="bg-white/5 border-white/10 text-white text-xs" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-white/40 text-xs">Hora</Label>
-                  <Input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white text-xs"
-                  />
+                  <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="bg-white/5 border-white/10 text-white text-xs" />
                 </div>
               </div>
             )}
           </div>
 
           {/* Action button */}
-          <Button
-            onClick={handlePublish}
-            disabled={publishing || selectedPlatforms.length === 0}
-            className="w-full h-11 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-sm font-medium shadow-lg shadow-purple-500/20"
-          >
+          <Button onClick={handlePublish} disabled={publishing || selectedPlatforms.length === 0} className="w-full h-11 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-sm font-medium shadow-lg shadow-purple-500/20">
             {publishing ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Procesando...</>
             ) : mode === 'now' ? (
@@ -613,7 +707,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
           </Button>
 
           <p className="text-center text-[10px] text-white/20">
-            Plan Gratuito: 4 redes | Plan Pro: redes ilimitadas + multicuentas
+            Plan Gratuito: 4 redes, 1 cuenta por red | Plan Pro: multiples cuentas
           </p>
         </div>
       </div>
