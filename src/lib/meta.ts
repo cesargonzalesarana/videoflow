@@ -10,8 +10,7 @@ const META_SCOPES = [
   'pages_read_engagement',
   'instagram_basic',
   'instagram_content_publish',
-  'publish_video',
-]
+  ]
 
 export interface MetaToken {
   access_token: string
