@@ -13,7 +13,7 @@ import {
   Youtube, Instagram, Facebook, Play,
   CalendarClock, Send, Link2, Unlink,
   ChevronDown, ChevronUp, Loader2, Check,
-  ExternalLink, AlertCircle, Upload
+  ExternalLink, Upload
 } from 'lucide-react'
 
 interface PublishDialogProps {
@@ -49,10 +49,14 @@ interface InstagramAccount {
   pageId: string
 }
 
-interface MetaUserInfo {
+interface FacebookUserInfo {
   name: string
   facebookPages: FacebookPage[]
-  instagramAccounts: InstagramAccount[]
+}
+
+interface InstagramUserInfo {
+  name: string
+  instagramAccount: InstagramAccount | null
 }
 
 const PLATFORMS: PlatformOption[] = [
@@ -84,17 +88,23 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ─── Meta states ─────────────────────────────────────────────────
-  const [metaConnected, setMetaConnected] = useState(false)
-  const [metaLoading, setMetaLoading] = useState(false)
-  const [metaInfo, setMetaInfo] = useState<MetaUserInfo | null>(null)
-  const [selectedPageId, setSelectedPageId] = useState('')
+  // ─── Facebook states (SEPARADO de Instagram) ─────────────────────
+  const [fbConnected, setFbConnected] = useState(false)
+  const [fbLoading, setFbLoading] = useState(false)
+  const [fbInfo, setFbInfo] = useState<FacebookUserInfo | null>(null)
+  const [fbSelectedPageId, setFbSelectedPageId] = useState('')
+
+  // ─── Instagram states (SEPARADO de Facebook) ─────────────────────
+  const [igConnected, setIgConnected] = useState(false)
+  const [igLoading, setIgLoading] = useState(false)
+  const [igInfo, setIgInfo] = useState<InstagramUserInfo | null>(null)
 
   // ─── Verificar estados al abrir ──────────────────────────────────
   useEffect(() => {
     if (open) {
       checkYouTubeStatus()
-      checkMetaStatus()
+      checkFacebookStatus()
+      checkInstagramStatus()
       checkUrlParams()
     } else {
       setUploadedVideos([])
@@ -116,14 +126,23 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       toast.error('Error al conectar YouTube: ' + params.get('youtube_error'))
       url.searchParams.delete('youtube_error')
     }
-    if (params.get('meta_connected') === 'true') {
-      toast.success('Cuenta de Meta conectada exitosamente')
-      url.searchParams.delete('meta_connected')
-      checkMetaStatus()
+    if (params.get('facebook_connected') === 'true') {
+      toast.success('Cuenta de Facebook conectada exitosamente')
+      url.searchParams.delete('facebook_connected')
+      checkFacebookStatus()
     }
-    if (params.get('meta_error')) {
-      toast.error('Error al conectar Meta: ' + params.get('meta_error'))
-      url.searchParams.delete('meta_error')
+    if (params.get('facebook_error')) {
+      toast.error('Error al conectar Facebook: ' + params.get('facebook_error'))
+      url.searchParams.delete('facebook_error')
+    }
+    if (params.get('instagram_connected') === 'true') {
+      toast.success('Cuenta de Instagram conectada exitosamente')
+      url.searchParams.delete('instagram_connected')
+      checkInstagramStatus()
+    }
+    if (params.get('instagram_error')) {
+      toast.error('Error al conectar Instagram: ' + params.get('instagram_error'))
+      url.searchParams.delete('instagram_error')
     }
     window.history.replaceState({}, '', url.toString())
   }
@@ -175,60 +194,110 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
-  // ─── Meta: verificar estado ──────────────────────────────────────
-  const checkMetaStatus = async () => {
+  // ─── Facebook: verificar estado ──────────────────────────────────
+  const checkFacebookStatus = async () => {
     try {
-      setMetaLoading(true)
-      const res = await fetch('/api/meta/auth?action=status')
+      setFbLoading(true)
+      const res = await fetch('/api/facebook/auth?action=status')
       const data = await res.json()
-      setMetaConnected(data.connected)
-      if (data.connected && data.user) {
-        setMetaInfo(data.user)
-        // Auto-seleccionar primera pagina si no hay seleccion
-        if (data.user.facebookPages?.length > 0 && !selectedPageId) {
-          setSelectedPageId(data.user.facebookPages[0].id)
+      setFbConnected(data.connected)
+      if (data.connected) {
+        setFbInfo({ name: data.userName, facebookPages: data.pages || [] })
+        if (data.pages?.length > 0 && !fbSelectedPageId) {
+          setFbSelectedPageId(data.pages[0].id)
         }
       } else {
-        setMetaInfo(null)
-        setSelectedPageId('')
+        setFbInfo(null)
+        setFbSelectedPageId('')
       }
     } catch {
-      setMetaConnected(false)
-      setMetaInfo(null)
+      setFbConnected(false)
+      setFbInfo(null)
     } finally {
-      setMetaLoading(false)
+      setFbLoading(false)
     }
   }
 
-  // ─── Meta: conectar ──────────────────────────────────────────────
-  const handleConnectMeta = async () => {
+  // ─── Facebook: conectar ──────────────────────────────────────────
+  const handleConnectFacebook = async () => {
     try {
-      setMetaLoading(true)
-      const res = await fetch('/api/meta/auth?action=authorize')
+      setFbLoading(true)
+      const res = await fetch('/api/facebook/auth?action=authorize')
       const data = await res.json()
       if (data.url) {
         window.open(data.url, '_blank', 'width=600,height=700')
-        toast.info('Autoriza tu cuenta de Facebook/Instagram en la ventana que se abrio')
+        toast.info('Autoriza tu cuenta de Facebook en la ventana que se abrio')
       }
     } catch {
-      toast.error('Error al iniciar conexion con Meta')
+      toast.error('Error al iniciar conexion con Facebook')
     } finally {
-      setMetaLoading(false)
+      setFbLoading(false)
     }
   }
 
-  // ─── Meta: desconectar ───────────────────────────────────────────
-  const handleDisconnectMeta = async () => {
-    if (!window.confirm('Desconectar tus cuentas de Facebook e Instagram?')) return
+  // ─── Facebook: desconectar ───────────────────────────────────────
+  const handleDisconnectFacebook = async () => {
+    if (!window.confirm('Desconectar tu cuenta de Facebook?')) return
     try {
-      await fetch('/api/meta/disconnect', { method: 'POST' })
-      setMetaConnected(false)
-      setMetaInfo(null)
-      setSelectedPageId('')
-      setSelectedPlatforms((prev) => prev.filter((p) => p !== 'facebook' && p !== 'instagram'))
-      toast.success('Cuentas de Meta desconectadas')
+      await fetch('/api/facebook/disconnect', { method: 'POST' })
+      setFbConnected(false)
+      setFbInfo(null)
+      setFbSelectedPageId('')
+      setSelectedPlatforms((prev) => prev.filter((p) => p !== 'facebook'))
+      toast.success('Cuenta de Facebook desconectada')
     } catch {
-      toast.error('Error al desconectar Meta')
+      toast.error('Error al desconectar Facebook')
+    }
+  }
+
+  // ─── Instagram: verificar estado ─────────────────────────────────
+  const checkInstagramStatus = async () => {
+    try {
+      setIgLoading(true)
+      const res = await fetch('/api/instagram/auth?action=status')
+      const data = await res.json()
+      setIgConnected(data.connected)
+      if (data.connected) {
+        setIgInfo({ name: data.userName, instagramAccount: data.instagramAccount || null })
+      } else {
+        setIgInfo(null)
+      }
+    } catch {
+      setIgConnected(false)
+      setIgInfo(null)
+    } finally {
+      setIgLoading(false)
+    }
+  }
+
+  // ─── Instagram: conectar ─────────────────────────────────────────
+  const handleConnectInstagram = async () => {
+    try {
+      setIgLoading(true)
+      const res = await fetch('/api/instagram/auth?action=authorize')
+      const data = await res.json()
+      if (data.url) {
+        window.open(data.url, '_blank', 'width=600,height=700')
+        toast.info('Autoriza tu cuenta de Instagram en la ventana que se abrio')
+      }
+    } catch {
+      toast.error('Error al iniciar conexion con Instagram')
+    } finally {
+      setIgLoading(false)
+    }
+  }
+
+  // ─── Instagram: desconectar ──────────────────────────────────────
+  const handleDisconnectInstagram = async () => {
+    if (!window.confirm('Desconectar tu cuenta de Instagram?')) return
+    try {
+      await fetch('/api/instagram/disconnect', { method: 'POST' })
+      setIgConnected(false)
+      setIgInfo(null)
+      setSelectedPlatforms((prev) => prev.filter((p) => p !== 'instagram'))
+      toast.success('Cuenta de Instagram desconectada')
+    } catch {
+      toast.error('Error al desconectar Instagram')
     }
   }
 
@@ -258,15 +327,15 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       toast.info('Primero conecta tu cuenta de YouTube')
       return
     }
-    if (id === 'facebook' && !metaConnected) {
-      toast.info('Primero conecta tu cuenta de Meta (Facebook)')
+    if (id === 'facebook' && !fbConnected) {
+      toast.info('Primero conecta tu cuenta de Facebook')
       return
     }
-    if (id === 'instagram' && !metaConnected) {
-      toast.info('Primero conecta tu cuenta de Meta (Instagram)')
+    if (id === 'instagram' && !igConnected) {
+      toast.info('Primero conecta tu cuenta de Instagram')
       return
     }
-    if (id === 'instagram' && metaConnected && (!metaInfo?.instagramAccounts || metaInfo.instagramAccounts.length === 0)) {
+    if (id === 'instagram' && igConnected && !igInfo?.instagramAccount) {
       toast.info('No se encontro cuenta de Instagram profesional. Necesitas una cuenta Business o Creator vinculada a una Pagina de Facebook.')
       return
     }
@@ -286,16 +355,8 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
 
     if (mode === 'now') {
-      if (selectedPlatforms.includes('youtube') && !selectedFile) {
-        toast.error('Selecciona un archivo de video para subir a YouTube')
-        return
-      }
-      if (selectedPlatforms.includes('facebook') && !selectedFile) {
-        toast.error('Selecciona un archivo de video para subir a Facebook')
-        return
-      }
-      if (selectedPlatforms.includes('instagram') && !selectedFile) {
-        toast.error('Selecciona un archivo de video para subir a Instagram')
+      if (!selectedFile && selectedPlatforms.some(p => p !== 'tiktok')) {
+        toast.error('Selecciona un archivo de video')
         return
       }
 
@@ -333,16 +394,13 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
           formData.append('video', selectedFile)
           formData.append('title', title)
           formData.append('description', description)
-          formData.append('hashtags', hashtags)
-          formData.append('platform', 'facebook')
-          formData.append('pageId', selectedPageId)
-          formData.append('privacy', isPublic ? 'PUBLIC' : 'PUBLIC')
+          formData.append('pageId', fbSelectedPageId)
 
-          const res = await fetch('/api/meta/upload', { method: 'POST', body: formData })
+          const res = await fetch('/api/facebook/upload', { method: 'POST', body: formData })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Error al subir a Facebook')
 
-          setUploadedVideos((prev) => [...prev, { platform: 'Facebook', id: data.video.id, url: data.video.url, title: data.video.title }])
+          setUploadedVideos((prev) => [...prev, { platform: 'Facebook', id: data.videoId, url: data.url, title: title }])
           toast.success(`Video subido a Facebook`)
           remainingPlatforms.splice(remainingPlatforms.indexOf('facebook'), 1)
         } catch (err: any) {
@@ -356,17 +414,13 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
           setUploadProgress('Subiendo a Instagram (puede tardar)...')
           const formData = new FormData()
           formData.append('video', selectedFile)
-          formData.append('title', title)
-          formData.append('description', description)
-          formData.append('hashtags', hashtags)
-          formData.append('platform', 'instagram')
-          formData.append('pageId', selectedPageId)
+          formData.append('caption', description + (hashtags ? '\n' + hashtags : ''))
 
-          const res = await fetch('/api/meta/upload', { method: 'POST', body: formData })
+          const res = await fetch('/api/instagram/upload', { method: 'POST', body: formData })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Error al subir a Instagram')
 
-          setUploadedVideos((prev) => [...prev, { platform: 'Instagram', id: data.video.id, url: '', title: data.video.title }])
+          setUploadedVideos((prev) => [...prev, { platform: 'Instagram', id: data.mediaId, url: data.url, title: title }])
           toast.success(`Reel publicado en Instagram`)
           remainingPlatforms.splice(remainingPlatforms.indexOf('instagram'), 1)
         } catch (err: any) {
@@ -429,15 +483,15 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       return { text: 'Conectar', connected: false }
     }
     if (platformId === 'facebook') {
-      if (metaLoading) return { text: 'Verificando...', connected: null }
-      if (metaConnected && metaInfo?.facebookPages?.length) return { text: metaInfo.facebookPages[0].name, connected: true }
-      if (metaConnected) return { text: 'Sin pagina', connected: false }
+      if (fbLoading) return { text: 'Verificando...', connected: null }
+      if (fbConnected && fbInfo?.facebookPages?.length) return { text: fbInfo.facebookPages[0].name, connected: true }
+      if (fbConnected) return { text: 'Sin pagina', connected: false }
       return { text: 'Conectar', connected: false }
     }
     if (platformId === 'instagram') {
-      if (metaLoading) return { text: 'Verificando...', connected: null }
-      if (metaConnected && metaInfo?.instagramAccounts?.length) return { text: '@' + metaInfo.instagramAccounts[0].username, connected: true }
-      if (metaConnected) return { text: 'Sin cuenta', connected: false }
+      if (igLoading) return { text: 'Verificando...', connected: null }
+      if (igConnected && igInfo?.instagramAccount) return { text: '@' + igInfo.instagramAccount.username, connected: true }
+      if (igConnected) return { text: 'Sin cuenta', connected: false }
       return { text: 'Conectar', connected: false }
     }
     return { text: 'No conectada', connected: false }
@@ -507,7 +561,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
               })}
             </div>
 
-            {/* Connect buttons */}
+            {/* Connect buttons - SEPARADOS */}
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {/* YouTube */}
               {!youtubeConnected ? (
@@ -523,34 +577,57 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
                 </div>
               )}
 
-              {/* Meta (Facebook + Instagram) */}
-              {!metaConnected ? (
-                <Button variant="ghost" size="sm" className="h-7 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20" onClick={handleConnectMeta} disabled={metaLoading}>
-                  {metaLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</> : <><Facebook className="h-3 w-3 mr-1.5" />Facebook / Instagram</>}
+              {/* Facebook - SEPARADO */}
+              {!fbConnected ? (
+                <Button variant="ghost" size="sm" className="h-7 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20" onClick={handleConnectFacebook} disabled={fbLoading}>
+                  {fbLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</> : <><Facebook className="h-3 w-3 mr-1.5" />Facebook</>}
                 </Button>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
-                    <Link2 className="h-2.5 w-2.5" />{metaInfo?.name || 'Meta'}
+                    <Link2 className="h-2.5 w-2.5" />{fbInfo?.name || 'Facebook'}
                   </Badge>
-                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/20 hover:text-red-400" onClick={handleDisconnectMeta}>X</Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/20 hover:text-red-400" onClick={handleDisconnectFacebook}>X</Button>
+                </div>
+              )}
+
+              {/* Instagram - SEPARADO */}
+              {!igConnected ? (
+                <Button variant="ghost" size="sm" className="h-7 text-xs bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/20" onClick={handleConnectInstagram} disabled={igLoading}>
+                  {igLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Conectando...</> : <><Instagram className="h-3 w-3 mr-1.5" />Instagram</>}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
+                    <Link2 className="h-2.5 w-2.5" />{igInfo?.instagramAccount?.username || igInfo?.name || 'Instagram'}
+                  </Badge>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] text-white/20 hover:text-red-400" onClick={handleDisconnectInstagram}>X</Button>
                 </div>
               )}
             </div>
 
             {/* Selector de pagina de Facebook */}
-            {metaConnected && metaInfo?.facebookPages && metaInfo.facebookPages.length > 1 && (
+            {fbConnected && fbInfo?.facebookPages && fbInfo.facebookPages.length > 1 && (
               <div className="p-2 rounded-md bg-white/[0.03] border border-white/5">
                 <Label className="text-white/30 text-[10px]">Pagina de Facebook (Plan Gratuito: 1 pagina)</Label>
                 <select
-                  value={selectedPageId}
-                  onChange={(e) => setSelectedPageId(e.target.value)}
+                  value={fbSelectedPageId}
+                  onChange={(e) => setFbSelectedPageId(e.target.value)}
                   className="w-full h-7 mt-1 rounded bg-white/5 border border-white/10 text-white text-[11px] px-2"
                 >
-                  {metaInfo.facebookPages.map((page) => (
-                    <option key={page.id} value={page.id}>{page.name} ({page.category})</option>
+                  {fbInfo.facebookPages.map((page) => (
+                    <option key={page.id} value={page.id}>{page.name}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {/* Aviso si Instagram conectado pero sin cuenta Business */}
+            {igConnected && !igInfo?.instagramAccount && (
+              <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                <p className="text-[10px] text-amber-400">
+                  No se encontro cuenta de Instagram profesional. Necesitas una cuenta Business o Creator vinculada a una Pagina de Facebook.
+                </p>
               </div>
             )}
 
