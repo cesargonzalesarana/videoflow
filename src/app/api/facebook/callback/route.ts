@@ -8,6 +8,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const error = searchParams.get('error')
+  const state = searchParams.get('state')
+
+  // Si es Instagram, redirigir al callback de Instagram
+  if (state === 'instagram') {
+    const redirectUrl = new URL('/api/instagram/callback', request.url)
+    redirectUrl.searchParams.set('code', code || '')
+    if (error) redirectUrl.searchParams.set('error', error)
+    return NextResponse.redirect(redirectUrl.toString())
+  }
 
   if (error) {
     console.error('Facebook auth error:', error)
@@ -59,7 +68,7 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 24 * 60 * 60, // 60 días
+      maxAge: 60 * 24 * 60 * 60,
       path: '/',
     })
 
