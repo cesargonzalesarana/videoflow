@@ -10,8 +10,8 @@ const FB_REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/facebook/
 
 // Solo scopes de Facebook - SIN permisos de Instagram
 const FB_SCOPES = [
-  'pages_manage_posts',
-  'pages_read_engagement',
+  'public_profile',
+  'email',
 ]
 
 export function getFacebookAuthUrl(): string {
