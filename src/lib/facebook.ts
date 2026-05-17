@@ -14,6 +14,7 @@ const FB_SCOPES = [
   'email',
   'pages_manage_posts',
   'pages_read_engagement',
+  'pages_show_list',
 ]
 
 export function getFacebookAuthUrl(): string {
