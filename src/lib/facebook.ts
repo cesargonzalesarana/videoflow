@@ -12,6 +12,8 @@ const FB_REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/facebook/
 const FB_SCOPES = [
   'public_profile',
   'email',
+  'pages_manage_posts',
+  'pages_read_engagement',
 ]
 
 export function getFacebookAuthUrl(): string {
