@@ -6,12 +6,11 @@
 const IG_APP_ID = process.env.META_APP_ID!
 const IG_APP_SECRET = process.env.META_APP_SECRET!
 const IG_API_VERSION = 'v19.0'
-const IG_REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/instagram/callback`
+const IG_REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/facebook/callback`
 
 // Solo scopes de Instagram - SIN permisos de Facebook
 const IG_SCOPES = [
   'instagram_basic',
-  'instagram_content_publish',
 ]
 
 export function getInstagramAuthUrl(): string {
@@ -20,6 +19,7 @@ export function getInstagramAuthUrl(): string {
     redirect_uri: IG_REDIRECT_URI,
     scope: IG_SCOPES.join(','),
     response_type: 'code',
+    state: 'instagram',
   })
   return `https://www.facebook.com/${IG_API_VERSION}/dialog/oauth?${params.toString()}`
 }
