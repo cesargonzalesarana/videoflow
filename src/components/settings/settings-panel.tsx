@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,12 +13,12 @@ import { Badge } from '@/components/ui/badge'
 import { motion } from 'framer-motion'
 import {
   Settings, User, Monitor, Bell, Link2, ExternalLink,
-  Youtube, Instagram, Facebook, Save, Check
+  Youtube, Instagram, Facebook, Save, Check, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function SettingsPanel() {
-  const { user } = useAppStore()
+  const { user, facebookConnected, instagramConnected, facebookUserName, instagramUserName, setFacebookConnected, setInstagramConnected } = useAppStore()
   const [settings, setSettings] = useState({
     resolution: '1080p',
     format: 'mp4',
@@ -31,19 +31,93 @@ export function SettingsPanel() {
     },
   })
   const [saved, setSaved] = useState(false)
-
-  const platforms = [
-    { id: 'youtube', name: 'YouTube', icon: <Youtube className="h-5 w-5 text-red-400" />, connected: false, color: 'border-red-500/20 hover:border-red-500/40' },
-    { id: 'tiktok', name: 'TikTok', icon: <Instagram className="h-5 w-5 text-pink-400" />, connected: false, color: 'border-pink-500/20 hover:border-pink-500/40' },
-    { id: 'instagram', name: 'Instagram', icon: <Instagram className="h-5 w-5 text-orange-400" />, connected: false, color: 'border-orange-500/20 hover:border-orange-500/40' },
-    { id: 'facebook', name: 'Facebook', icon: <Facebook className="h-5 w-5 text-blue-400" />, connected: false, color: 'border-blue-500/20 hover:border-blue-500/40' },
-  ]
+  const [disconnectingFb, setDisconnectingFb] = useState(false)
+  const [disconnectingIg, setDisconnectingIg] = useState(false)
 
   const handleSave = () => {
     setSaved(true)
     toast.success('Configuración guardada')
     setTimeout(() => setSaved(false), 2000)
   }
+
+  const handleConnectFacebook = () => {
+    window.location.href = '/api/facebook/auth'
+  }
+
+  const handleConnectInstagram = () => {
+    window.location.href = '/api/instagram/auth'
+  }
+
+  const handleDisconnectFacebook = async () => {
+    try {
+      setDisconnectingFb(true)
+      const res = await fetch('/api/facebook/disconnect', { method: 'POST' })
+      if (res.ok) {
+        setFacebookConnected(false, '')
+        toast.success('Facebook desconectado')
+      }
+    } catch {
+      toast.error('Error al desconectar Facebook')
+    } finally {
+      setDisconnectingFb(false)
+    }
+  }
+
+  const handleDisconnectInstagram = async () => {
+    try {
+      setDisconnectingIg(true)
+      const res = await fetch('/api/instagram/disconnect', { method: 'POST' })
+      if (res.ok) {
+        setInstagramConnected(false, '')
+        toast.success('Instagram desconectado')
+      }
+    } catch {
+      toast.error('Error al desconectar Instagram')
+    } finally {
+      setDisconnectingIg(false)
+    }
+  }
+
+  const platforms = [
+    {
+      id: 'youtube',
+      name: 'YouTube',
+      icon: <Youtube className="h-5 w-5 text-red-400" />,
+      connected: false,
+      color: 'border-red-500/20 hover:border-red-500/40',
+      comingSoon: true,
+    },
+    {
+      id: 'tiktok',
+      name: 'TikTok',
+      icon: <Instagram className="h-5 w-5 text-pink-400" />,
+      connected: false,
+      color: 'border-pink-500/20 hover:border-pink-500/40',
+      comingSoon: true,
+    },
+    {
+      id: 'instagram',
+      name: 'Instagram',
+      icon: <Instagram className="h-5 w-5 text-orange-400" />,
+      connected: instagramConnected,
+      userName: instagramUserName,
+      color: 'border-orange-500/20 hover:border-orange-500/40',
+      onConnect: handleConnectInstagram,
+      onDisconnect: handleDisconnectInstagram,
+      disconnecting: disconnectingIg,
+    },
+    {
+      id: 'facebook',
+      name: 'Facebook',
+      icon: <Facebook className="h-5 w-5 text-blue-400" />,
+      connected: facebookConnected,
+      userName: facebookUserName,
+      color: 'border-blue-500/20 hover:border-blue-500/40',
+      onConnect: handleConnectFacebook,
+      onDisconnect: handleDisconnectFacebook,
+      disconnecting: disconnectingFb,
+    },
+  ]
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -114,15 +188,45 @@ export function SettingsPanel() {
                     <div>
                       <p className="text-sm font-medium">{platform.name}</p>
                       {platform.connected ? (
-                        <p className="text-xs text-green-400">Conectado</p>
+                        <>
+                          <p className="text-xs text-green-400">Conectado</p>
+                          {platform.userName && (
+                            <p className="text-[10px] text-muted-foreground">{platform.userName}</p>
+                          )}
+                        </>
                       ) : (
-                        <p className="text-xs text-muted-foreground">No conectado</p>
+                        <p className="text-xs text-muted-foreground">
+                          {platform.comingSoon ? 'Próximamente' : 'No conectado'}
+                        </p>
                       )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="h-8 text-xs">
-                    {platform.connected ? 'Gestionar' : 'Conectar'}
-                  </Button>
+                  {platform.comingSoon ? (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">Pronto</Badge>
+                  ) : platform.connected ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+                      onClick={platform.onDisconnect}
+                      disabled={platform.disconnecting}
+                    >
+                      {platform.disconnecting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        'Desconectar'
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs text-purple-400 border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-300"
+                      onClick={platform.onConnect}
+                    >
+                      Conectar
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
