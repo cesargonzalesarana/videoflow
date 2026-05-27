@@ -1,93 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  exchangeCodeForToken,
-  getFacebookPagesForIG,
-  getInstagramAccount,
-} from '@/lib/instagram'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const error = searchParams.get('error')
-
-  if (error) {
-    console.error('Instagram auth error:', error)
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || ''}/editor?instagram_error=${encodeURIComponent(error)}`
-    )
-  }
 
   if (!code) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || ''}/editor?instagram_error=no_code`
-    )
+    return NextResponse.redirect(new URL('/?instagram_error=true', request.url))
   }
 
   try {
-    // Intercambiar code por token
-    const tokenData = await exchangeCodeForToken(code)
+    const META_APP_ID = process.env.META_APP_ID!
+    const META_APP_SECRET = process.env.META_APP_SECRET!
+    const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/instagram/callback`
 
-    // Obtener nombre del usuario
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&redirect_uri=${REDIRECT_URI}&code=${code}`,
+      { method: 'GET' }
+    )
+    const tokenData = await tokenRes.json()
+
+    if (tokenData.error) {
+      console.error('Instagram token error:', tokenData.error)
+      return NextResponse.redirect(new URL('/?instagram_error=true', request.url))
+    }
+
+    const shortLivedToken = tokenData.access_token
+    const longLivedRes = await fetch(
+      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}&fb_exchange_token=${shortLivedToken}`,
+      { method: 'GET' }
+    )
+    const longLivedData = await longLivedRes.json()
+    const longLivedToken = longLivedData.access_token || shortLivedToken
+
     const meRes = await fetch(
-      `https://graph.facebook.com/v19.0/me?fields=name&access_token=${tokenData.access_token}`
+      `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${longLivedToken}`
     )
     const meData = await meRes.json()
-    const userName = meData.name || 'Instagram User'
 
-    // Obtener páginas del usuario (necesarias para encontrar cuenta IG)
-    const pages = await getFacebookPagesForIG(tokenData.access_token)
-
-    // Buscar cuenta de Instagram Business vinculada a una página
-    let instagramAccount = null
-    for (const page of pages) {
-      try {
-        const igAccount = await getInstagramAccount(page.id, page.access_token)
-        if (igAccount) {
-          instagramAccount = {
-            id: igAccount.id,
-            username: igAccount.username,
-            pageId: page.id,
-            pageAccessToken: page.access_token,
-          }
-          break
-        }
-      } catch {
-        continue
+    let instagramBusinessId: string | null = null
+    if (meData.data && meData.data.length > 0) {
+      const pageToken = meData.data[0].access_token
+      const igRes = await fetch(
+        `https://graph.facebook.com/v19.0/${meData.data[0].id}?fields=instagram_business_account{id,username}&access_token=${pageToken}`
+      )
+      const igData = await igRes.json()
+      if (igData.instagram_business_account) {
+        instagramBusinessId = igData.instagram_business_account.id
       }
     }
 
-    // Guardar en cookie
-    const cookieData = {
-      access_token: tokenData.access_token,
-      token_type: tokenData.token_type,
-      expires_in: tokenData.expires_in,
-      expires_at: Date.now() + tokenData.expires_in * 1000,
-      user_name: userName,
-      pages: pages.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        access_token: p.access_token,
-      })),
-      instagram_account: instagramAccount,
-    }
-
-    const response = NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || ''}/editor?instagram_connected=true`
-    )
-
-    response.cookies.set('instagram_token', JSON.stringify(cookieData), {
+    const response = NextResponse.redirect(new URL('/?instagram_connected=true', request.url))
+    response.cookies.set('instagram_access_token', longLivedToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
       sameSite: 'lax',
-      maxAge: 60 * 24 * 60 * 60,
+      maxAge: 60 * 60 * 24 * 60,
       path: '/',
     })
-
+    if (instagramBusinessId) {
+      response.cookies.set('instagram_business_id', instagramBusinessId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 60,
+        path: '/',
+      })
+    }
     return response
-  } catch (err: any) {
-    console.error('Instagram callback error:', err)
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL || ''}/editor?instagram_error=${encodeURIComponent(err.message)}`
-    )
+  } catch (error) {
+    console.error('Instagram callback error:', error)
+    return NextResponse.redirect(new URL('/?instagram_error=true', request.url))
   }
 }
