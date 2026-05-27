@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getValidFacebookToken, uploadToFacebook } from '@/lib/facebook'
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('facebook_token')?.value
+    const token = request.cookies.get('facebook_access_token')?.value
+    const userInfoCookie = request.cookies.get('facebook_user_info')?.value
+
     if (!token) {
       return NextResponse.json({ error: 'Facebook no conectado' }, { status: 401 })
     }
 
-    const tokenData = JSON.parse(token)
-    const validToken = await getValidFacebookToken(tokenData)
+    let userInfo: any = {}
+    if (userInfoCookie) {
+      try { userInfo = JSON.parse(userInfoCookie) } catch { /* ignore */ }
+    }
 
     const formData = await request.formData()
     const videoFile = formData.get('video') as File
@@ -25,21 +28,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Encontrar la página seleccionada
-    const page = validToken.pages.find((p: any) => p.id === pageId)
+    const pages = userInfo.pages || []
+    const page = pages.find((p: any) => p.id === pageId)
     if (!page) {
       return NextResponse.json({ error: 'Página no encontrada' }, { status: 400 })
     }
 
     const buffer = Buffer.from(await videoFile.arrayBuffer())
 
-    const result = await uploadToFacebook(
-      page.access_token,
-      pageId,
-      buffer,
-      title,
-      description
+    const fbFormData = new FormData()
+    fbFormData.append('file', new Blob([buffer], { type: 'video/mp4' }), 'video.mp4')
+    fbFormData.append('title', title)
+    fbFormData.append('description', description)
+
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${pageId}/videos?access_token=${page.access_token}`,
+      {
+        method: 'POST',
+        body: fbFormData,
+      }
     )
 
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(`Facebook upload error: ${JSON.stringify(err)}`)
+    }
+
+    const result = await res.json()
     return NextResponse.json({
       success: true,
       videoId: result.id,

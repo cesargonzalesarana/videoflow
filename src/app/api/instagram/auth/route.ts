@@ -11,16 +11,17 @@ export async function GET(request: NextRequest) {
   }
 
   if (action === 'status') {
-    const token = request.cookies.get('instagram_token')?.value
+    const token = request.cookies.get('instagram_access_token')?.value
+    const businessId = request.cookies.get('instagram_business_id')?.value
+
     if (!token) {
       return NextResponse.json({ connected: false })
     }
     try {
-      const data = JSON.parse(token)
       return NextResponse.json({
         connected: true,
-        userName: data.user_name,
-        instagramAccount: data.instagram_account || null,
+        userName: 'Instagram User',
+        instagramAccount: businessId ? { id: businessId } : null,
       })
     } catch {
       return NextResponse.json({ connected: false })

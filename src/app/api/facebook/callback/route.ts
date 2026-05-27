@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const state = searchParams.get('state')
 
   if (!code) {
     return NextResponse.redirect(new URL('/?facebook_error=true', request.url))
@@ -44,10 +43,6 @@ export async function GET(request: NextRequest) {
       `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${longLivedToken}`
     )
     const pagesData = await pagesRes.json()
-
-    if (state === 'instagram') {
-      return NextResponse.redirect(new URL('/?instagram_connected=true', request.url))
-    }
 
     const response = NextResponse.redirect(new URL('/?facebook_connected=true', request.url))
     response.cookies.set('facebook_access_token', longLivedToken, {
