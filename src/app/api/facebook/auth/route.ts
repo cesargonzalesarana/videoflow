@@ -1,36 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '3268486610028771'
-const FACEBOOK_CONFIG_ID = process.env.FACEBOOK_CONFIG_ID || '1290513316582933'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || ''
+import { getFacebookAuthUrl } from '@/lib/facebook'
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get('facebook_access_token')?.value
-  const userInfoRaw = request.cookies.get('facebook_user_info')?.value
+  const { searchParams } = new URL(request.url)
+  const action = searchParams.get('action')
 
-  // If already connected, return status (for fetch checks)
-  if (token && userInfoRaw) {
+  if (action === 'authorize') {
+    const url = getFacebookAuthUrl()
+    return NextResponse.json({ url })
+  }
+
+  if (action === 'status') {
+    const token = request.cookies.get('facebook_access_token')?.value
+    const userInfoCookie = request.cookies.get('facebook_user_info')?.value
+
+    if (!token) {
+      return NextResponse.json({ connected: false })
+    }
     try {
-      const userInfo = JSON.parse(decodeURIComponent(userInfoRaw))
+      let userInfo: any = {}
+      if (userInfoCookie) {
+        userInfo = JSON.parse(userInfoCookie)
+      }
       return NextResponse.json({
         connected: true,
-        userName: userInfo.name || '',
-        pageName: userInfo.pageName || '',
+        userName: userInfo.name || 'Facebook User',
+        pages: userInfo.pages || [],
       })
     } catch {
-      // Cookie exists but is corrupted, continue to re-auth
+      return NextResponse.json({ connected: false })
     }
   }
 
-  // If request expects JSON (fetch/AJAX call), return not-connected
-  const accept = request.headers.get('accept') || ''
-  if (accept.includes('application/json')) {
-    return NextResponse.json({ connected: false })
-  }
-
-  // Otherwise redirect to Facebook OAuth (browser navigation)
-  const redirectUri = `${APP_URL}/api/facebook/callback`
-  const authUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&config_id=${FACEBOOK_CONFIG_ID}&scope=instagram_basic,pages_show_list,pages_manage_posts,instagram_content_publish`
-
-  return NextResponse.redirect(authUrl)
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 }

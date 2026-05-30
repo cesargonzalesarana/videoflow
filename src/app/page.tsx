@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { AuthForm } from '@/components/auth/auth-form'
 import { Navbar } from '@/components/layout/navbar'
@@ -15,12 +14,9 @@ import { ScriptGenerator } from '@/components/ai/script-generator'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { AnimatePresence, motion } from 'framer-motion'
 
-function AppContent() {
-  const { currentView, isAuthenticated, login, setAuthLoading, setFacebookConnected, setInstagramConnected } = useAppStore()
-  const searchParams = useSearchParams()
-  const router = useRouter()
+export default function Home() {
+  const { currentView, isAuthenticated, login, setAuthLoading } = useAppStore()
 
-  // Check for existing Supabase session on mount
   useEffect(() => {
     async function checkSession() {
       try {
@@ -38,58 +34,8 @@ function AppContent() {
       }
     }
     checkSession()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Check platform connections on mount (for returning users)
-  useEffect(() => {
-    if (!isAuthenticated) return
-    checkPlatformConnections()
-  }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Handle OAuth redirect params (facebook_connected / instagram_connected)
-  useEffect(() => {
-    const fbConnected = searchParams.get('facebook_connected')
-    const igConnected = searchParams.get('instagram_connected')
-
-    if (fbConnected === 'true' || igConnected === 'true') {
-      // Check real connection status from server
-      checkPlatformConnections()
-
-      // Clean URL params
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('facebook_connected')
-      params.delete('instagram_connected')
-      const newUrl = params.toString() ? `?${params.toString()}` : '/'
-      router.replace(newUrl)
-    }
-  }, [searchParams, isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function checkPlatformConnections() {
-    try {
-      const [fbRes, igRes] = await Promise.all([
-        fetch('/api/facebook/auth'),
-        fetch('/api/instagram/auth'),
-      ])
-
-      if (fbRes.ok) {
-        const fbData = await fbRes.json()
-        if (fbData.connected) {
-          setFacebookConnected(true, fbData.userName || '')
-        }
-      }
-
-      if (igRes.ok) {
-        const igData = await igRes.json()
-        if (igData.connected) {
-          setInstagramConnected(true, igData.userName || '')
-        }
-      }
-    } catch (error) {
-      console.error('Error checking platform connections:', error)
-    }
-  }
-
-  // Show loading state while checking session
   if (isAuthenticated === false && useAppStore.getState().isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animated-gradient">
@@ -105,24 +51,28 @@ function AppContent() {
     )
   }
 
-  // Show auth/landing when not logged in
   if (!isAuthenticated) {
     return <AuthForm />
   }
 
-  // Show app layout when logged in
+  if (currentView === 'video-creator') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <VideoCreator />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex">
-      {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border/50 glass-strong">
         <Sidebar />
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar />
 
-        <main className={`flex-1 overflow-hidden ${currentView === 'video-creator' ? '' : 'p-4 md:p-6 overflow-auto'}`}>
+        <main className="flex-1 overflow-hidden p-4 md:p-6 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}
@@ -130,11 +80,8 @@ function AppContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className={currentView === 'video-creator' ? 'h-full' : ''}
             >
               {currentView === 'dashboard' && <Dashboard />}
-
-              {currentView === 'video-creator' && <VideoCreator />}
 
               {currentView === 'scheduler' && (
                 <div className="space-y-6">
@@ -156,13 +103,5 @@ function AppContent() {
         </main>
       </div>
     </div>
-  )
-}
-
-export default function Home() {
-  return (
-    <Suspense>
-      <AppContent />
-    </Suspense>
   )
 }
