@@ -99,6 +99,18 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
   const [igLoading, setIgLoading] = useState(false)
   const [igInfo, setIgInfo] = useState<InstagramUserInfo | null>(null)
 
+  // ─── Polling refs para detectar conexion despues de OAuth ───────
+  const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const igPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // ─── Limpiar polls al desmontar ──────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (fbPollRef.current) clearInterval(fbPollRef.current)
+      if (igPollRef.current) clearInterval(igPollRef.current)
+    }
+  }, [])
+
   // ─── Verificar estados al abrir ──────────────────────────────────
   useEffect(() => {
     if (open) {
@@ -110,6 +122,8 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       setUploadedVideos([])
       setUploadProgress('')
       setPublishing(false)
+      if (fbPollRef.current) clearInterval(fbPollRef.current)
+      if (igPollRef.current) clearInterval(igPollRef.current)
     }
   }, [open])
 
@@ -218,7 +232,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
-  // ─── Facebook: conectar ──────────────────────────────────────────
+  // ─── Facebook: conectar (con polling automatico) ─────────────────
   const handleConnectFacebook = async () => {
     try {
       setFbLoading(true)
@@ -227,6 +241,22 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       if (data.url) {
         window.open(data.url, '_blank', 'width=600,height=700')
         toast.info('Autoriza tu cuenta de Facebook en la ventana que se abrio')
+
+        // Polling: verificar cada 3 segundos si ya se conecto
+        if (fbPollRef.current) clearInterval(fbPollRef.current)
+        fbPollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch('/api/facebook/auth?action=status')
+            const statusData = await statusRes.json()
+            if (statusData.connected) {
+              if (fbPollRef.current) clearInterval(fbPollRef.current)
+              setFbLoading(false)
+              checkFacebookStatus()
+              toast.success('Cuenta de Facebook conectada exitosamente')
+            }
+          } catch { /* ignorar errores de polling */ }
+        }, 3000)
+        setTimeout(() => { if (fbPollRef.current) clearInterval(fbPollRef.current) }, 120000)
       }
     } catch {
       toast.error('Error al iniciar conexion con Facebook')
@@ -270,7 +300,7 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
     }
   }
 
-  // ─── Instagram: conectar ─────────────────────────────────────────
+  // ─── Instagram: conectar (con polling automatico) ────────────────
   const handleConnectInstagram = async () => {
     try {
       setIgLoading(true)
@@ -279,6 +309,22 @@ export function PublishDialog({ open, onClose, clipCount }: PublishDialogProps) 
       if (data.url) {
         window.open(data.url, '_blank', 'width=600,height=700')
         toast.info('Autoriza tu cuenta de Instagram en la ventana que se abrio')
+
+        // Polling: verificar cada 3 segundos si ya se conecto
+        if (igPollRef.current) clearInterval(igPollRef.current)
+        igPollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch('/api/instagram/auth?action=status')
+            const statusData = await statusRes.json()
+            if (statusData.connected) {
+              if (igPollRef.current) clearInterval(igPollRef.current)
+              setIgLoading(false)
+              checkInstagramStatus()
+              toast.success('Cuenta de Instagram conectada exitosamente')
+            }
+          } catch { /* ignorar errores de polling */ }
+        }, 3000)
+        setTimeout(() => { if (igPollRef.current) clearInterval(igPollRef.current) }, 120000)
       }
     } catch {
       toast.error('Error al iniciar conexion con Instagram')
