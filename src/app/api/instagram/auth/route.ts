@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID || '3268486610028771'
 const FACEBOOK_CONFIG_ID = process.env.FACEBOOK_CONFIG_ID || '1290513316582933'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || ''
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://videoflow-theta.vercel.app'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
